@@ -1,0 +1,32 @@
+// General CrossFill styles
+
+#gridOuter {
+	border: 1px solid #444;
+	width: 480px;
+	height: 480px;
+}
+
+// All cells
+#gridOuter div {
+	width: 30px;
+	height: 30px;
+	float: left;
+	border-width: 1px;
+	border-style: solid;
+	border-color: #444;
+}
+
+.block {
+	background-color: #444;
+}
+
+.rowStart {
+	clear: both;
+}
+
+#gridOuter div .clueNum {
+	border-width: 0px;
+	border-style: none;
+	font-size: 50%;
+	float: left;
+}
