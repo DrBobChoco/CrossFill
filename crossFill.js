@@ -19,10 +19,12 @@ var router = bee.route({
 			dbClient.connect(DB_URL, function(err, db) {
 				var coll;
 				if(tokens.crossWordId) {
+					console.log("Have crosswordId");
 					coll = db.collection("crosswords");
 					var id =  ObjectID.createFromHexString(tokens.crosswordId);
 					sendGridLayout(coll, id, req, res);
 				} else {
+					console.log("No valid crosswordId");
 					coll = db.collection("grids");
 					coll.distinct("_id", function(err, ids) {
 						if(ids.length) {
@@ -46,13 +48,19 @@ var router = bee.route({
 });
 
 function sendGridLayout(collection, id, request, response) {
+	//console.log("passed id -" + id);
 	collection.findOne({_id:id}, function(err, result) {
+		if(err) {
+			console.log("sGL findOne err -" + err);
+		}
 		if(result) {
-			var body = "{gridLayout:" + result.gridLayout + ",id:" + id.toHexStrinng() + "}";
+			//console.log("result -" + JSON.stringify(result));
+			var body = '{"gridLayout":' + result.gridLayout + ',"id":"' + result._id.toHexString() + '"}';
 			response.writeHead(200, {
 				"Content-length": body.length,
 				"Content-type": "application/json"
 			});
+			//console.log("body -" + body);
 			response.end(body);
 		} else {
 			router.missing(request, response);
@@ -60,4 +68,5 @@ function sendGridLayout(collection, id, request, response) {
 	});
 }
 
+console.log("Starting...");
 require("http").createServer(router).listen(8080);

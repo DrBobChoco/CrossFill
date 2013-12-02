@@ -1,5 +1,6 @@
 // General Functions
 
-function getId(path) {
-	// path: /thingy/id
+function getURLId() {
+	var urlBits = document.location.pathname.split('/');
+	return urlBits[urlBits.length - 1]
 }
