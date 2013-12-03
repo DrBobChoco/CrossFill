@@ -16,13 +16,12 @@ function initiallise() {
 	$("#createBtn").on("click", createCrossword);
 	$("#crosswordTitle").on("dblclick", editTitle);
 	$("#titleEdit").on("keydown", checkTitleEditKey);
-	$("#titleEdit").on("blur", saveTitle);
+	//$("#titleEdit").on("blur", saveTitle);
 }
 
 function loadCrossword() {
 	crosswordId = getURLId();
 	makeGrid();
-	//if(crosswordId) {
 	if(crosswordId != "0") {
 		console.log("crosswordId -" + crosswordId);
 		$("#newGridBtn").hide();
@@ -110,9 +109,9 @@ function groupClues() {
 function createCrossword() {}
 
 function editTitle() {
-	$("#titleEdit").val($("#crosswordTitle").text()); 
 	$("#crosswordTitle").hide();
-	$("#titleEdit").show().focus();
+	$("#titleEdit").val($("#crosswordTitle").text()).show().focus(); 
+	//$("#titleEdit").show().focus();
 }
 
 function checkTitleEditKey(ev) {
@@ -122,7 +121,6 @@ function checkTitleEditKey(ev) {
 		saveTitle();
 	} else if(ev.keyCode == 27) { //esc
 		console.log("Esc");
-		ev.stopImmediatePropagation();
 		setTitle(false);
 	}
 }
