@@ -19,6 +19,14 @@ function initiallise() {
 	//$("#titleEdit").on("blur", saveTitle);
 }
 
+/**
+ * Only used here at the mo. Move to general if needed elsewhere
+ */
+function getURLId() {
+	var urlBits = document.location.pathname.split('/');
+	return urlBits[urlBits.length - 1]
+}
+
 function loadCrossword() {
 	crosswordId = getURLId();
 	makeGrid();
@@ -40,7 +48,7 @@ function makeGrid() {
 		type: "POST",
 		dataType: "json",
 		success: function(data, stat, jqXHR) {
-			//console.log(JSON.stringify(data));
+			console.log(JSON.stringify(data));
 			gridLayout = data.gridLayout;
 			for(row=0; row<15; row++) {
 				for(col=0; col<15; col++) {
