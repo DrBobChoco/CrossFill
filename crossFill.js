@@ -12,6 +12,7 @@ var ERR_MSG = {
 	entityTooLarge: "Request entity too large",
 	loginFailed: "Login failed",
 	missingLoginData: "Missing login data",
+	missingCrosswordData: "Missing crossword data",
 	notLoggedIn: "User not logged in",
 	userNotFound: "User not found"
 };
@@ -23,6 +24,7 @@ var router = bee.route({
 	"/edit/`crosswordId`": bee.staticFile("./static/edit.html", "text/html"),
 	//"/list": bee.staticFile("./static/list.html", "text.html"),
 	"/list": function(req, res) {
+		//poss remove waterfall and just call getLIU(req, res, func(){})?
 		async.waterfall([
 			function(callback) {
 				callback(null, req, res);
@@ -59,6 +61,9 @@ var router = bee.route({
 							err.message == ERR_MSG.missingLoginData ||
 							err.message == ERR_MSG.userNotFound) {
 							//all count as login fail
+							res.writeHead(303, {
+								"Location": "/badLogin"
+							});
 						} else {
 							res.writeHead(303, {
 								"Location": "/"
@@ -128,7 +133,31 @@ var router = bee.route({
 		}
 	},
 	"/createCrossword": {
-		"POST": function(req, res) {}
+		"POST": function(req, res) {
+			var user;
+			asyncwaterfall([
+					function(callback) {
+						callback(null);
+					},
+					getLoggedInUser,
+					function(currUser, callback) {
+						user = currUser;
+						callback(null, req);
+					},
+					getPost,
+					function(post, callback) {
+						callback(null, user, post);
+					}
+					createCrossword
+			], function(err, crosswordId) {
+					if(err) {
+						router.error(req, res, err.message);
+					} else {
+						var body = '{"crosswordId": "' + crosswordId.toHexString() + '"}';
+						sendOK(res, body, "application/json");
+					}
+				});
+		}
 	},
 
 	// Other
@@ -236,11 +265,7 @@ function sendUserCrosswordList(user, response, callback) {
 					crosswords = [{"_id":0,"title":"You haven't made any crosswords yet."}];
 				}
 				var body = '{"crosswords":' + JSON.stringify(crosswords) + '}';
-				response.writeHead(200, {
-					"Content-length": body.length,
-					"Content-type": "application/json"
-				});
-				response.end(body);
+				sendOK(response, body, "application/json");
 			}
 		});
 	});
@@ -256,16 +281,41 @@ function sendGridLayout(collection, id, request, response) {
 		if(result) {
 			//console.log("result -" + JSON.stringify(result));
 			var body = '{"gridLayout":' + result.gridLayout + ',"id":"' + result._id.toHexString() + '"}';
-			response.writeHead(200, {
-				"Content-length": body.length,
-				"Content-type": "application/json"
-			});
-			//console.log("body -" + body);
-			response.end(body);
+			sendOK(response, body, "application/json");
 		} else {
 			router.missing(request, response);
 		}
 	});
+}
+
+/**
+ * Async waterfall function
+ * In: user, post data
+ * Out: new crosswordId object
+ */
+function createCrossword(user, post, callback) {
+	if(!post.title || !post.gridLayout) {
+		callback(new Error(ERR_MSG.missingCrosswordData));
+	} else {
+		dbClient.connect(DB_URL, function(err, db) {
+			var crosswords = db.collection("crosswords");
+			crosswords.insert({userId:user._id.toHexString(), title:post.title, gridLayout:post.gridlayout}, function(err, result) {
+				if(err) {
+					callback(err);
+				} else {
+					callback(null, result[0]._id);
+				}
+			});
+		}
+	}
+}
+
+function sendOK(response, body, type) {
+	response.writeHead(200, {
+		"Content-length": body.length,
+		"Content-type": type
+	});
+	response.end(body);
 }
 
 console.log("Starting...");
