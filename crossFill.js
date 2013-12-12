@@ -19,28 +19,21 @@ var ERR_MSG = {
 
 var bee = require("beeline");
 var router = bee.route({
-	// Static paths
-	"/": bee.staticFile("./static/index.html", "text/html"),
-	"/edit/`crosswordId`": bee.staticFile("./static/edit.html", "text/html"),
-	//"/list": bee.staticFile("./static/list.html", "text.html"),
-	"/list": function(req, res) {
-		//poss remove waterfall and just call getLIU(req, res, func(){})?
-		async.waterfall([
-			function(callback) {
-				callback(null, req, res);
-			},
-			getLoggedInUser
-		], function(err) {
-				if(err) {
-					res.writeHead(303, {
-						"Location": "/"
-					});
-					res.end();
-				} else {
-					bee.staticFile("./static/list.html", "text.html")(req, res);
-				}
-			});
+	// Static(ish) paths
+	"/": function(req, res) {
+		getLoggedInUser(req, res, function(err, user) {
+			if(!err && user) {
+				res.writeHead(303, {
+					"Location": "/list"
+				});
+				res.end();
+			} else {
+				bee.staticFile("./static/index.html", "text/html")(req, res);
+			}
+		});
 	},
+	"/edit/`crosswordId`": loggedInStaticFile("./static/edit.html", "text/html"),
+	"/list": loggedInStaticFile("./static/list.html", "text/html"),
 	"/css/`path...`": bee.staticDir("./static/css/", {".css": "text/css"}),
 	"/images/`path...`": bee.staticDir("./static/images/", {".jpg": "image/jpeg", ".gif": "image/gif"}),
 	"/javascript/`path...`": bee.staticDir("./static/javascript/", {".js": "text/javascript"}),
@@ -147,7 +140,7 @@ var router = bee.route({
 					getPost,
 					function(post, callback) {
 						callback(null, user, post);
-					}
+					},
 					createCrossword
 			], function(err, crosswordId) {
 					if(err) {
@@ -230,8 +223,8 @@ function getLoggedInUser(req, res, callback) {
 	var cookies = new Cookies(req, res);
 	var userId = cookies.get("userId");
 	var loginSecret = cookies.get("loginCheck");
-	console.log("Get looged in user");
-	if(userId.length != 24 || !loginSecret) {
+	console.log("Get logged in user");
+	if(!userId || userId.length != 24 || !loginSecret) {
 		callback(new Error(ERR_MSG.notLoggedIn));
 	} else {
 		dbClient.connect(DB_URL, function(err, db) {
@@ -247,6 +240,25 @@ function getLoggedInUser(req, res, callback) {
 			});
 		});
 	}
+}
+
+/**
+ * Wraps bee.static file and redirects to / if not logged in
+ * returns a callback so can be used directly in the route setup
+ */
+function loggedInStaticFile(filePath, mediaType) {
+	return function(req, res) {
+		getLoggedInUser(req, res, function(err, user) {
+			if(!err && user) {
+				bee.staticFile(filePath, mediaType)(req, res);
+			} else {
+				res.writeHead(303, {
+					"Location": "/"
+				});
+				res.end();
+			}
+		});
+	};
 }
 
 /**
@@ -306,7 +318,7 @@ function createCrossword(user, post, callback) {
 					callback(null, result[0]._id);
 				}
 			});
-		}
+		});
 	}
 }
 

@@ -12,6 +12,11 @@ var gridLayout = [];
 function initiallise() {
 	$("#titleEdit").hide();
 	loadCrossword();
+	if(crosswordId) {
+		$("#createControls").hide();
+	} else {
+		$("#editControls").hide();
+	}
 	$("#newGridBtn").on("click", makeGrid);
 	$("#createBtn").on("click", createCrossword);
 	$("#crosswordTitle").on("dblclick", editTitle);
