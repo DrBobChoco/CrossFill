@@ -19,6 +19,8 @@ function initiallise() {
 	if(crosswordId != "0") {
 		$("#createControls").hide();
 		$("#statusMsg").hide();
+		$("#gridOuter").on("click", ".space", spaceClick);
+		$("#gridOuter").on("dblclick", ".space", editAnswer);
 		$("#enterWord").on("click", editAnswer);
 	} else {
 		$("#editControls").hide();
@@ -31,7 +33,9 @@ function initiallise() {
 	$("#titleEdit").on("keydown", checkTitleEditKey);
 	$("#titleEdit").on("blur", function() { setTitle(false); });
 	// Answers
-	//$("#answerEdit").on("keydown", checkAnswerEditKey);
+	$("#answerEditHolder").on("keydown", ".answerEdit", checkAnswerEditKey);
+	$("#answerEditHolder").on("keyup", ".answerEdit", function(){$(this).next().focus();});
+
 	$("#answerUse").on("click", null, "dialog", saveAnswer);
 	$("#answerCancel").on("click", function() { $("#dlgOverlay").hide(); });
 	// Questions
@@ -124,10 +128,6 @@ function makeGrid() {
 		}
 	}
 	groupCells();
-	if(crosswordId != "0") {
-		$(".space").on("click", spaceClick);
-		$(".space").on("dblclick", editAnswer);
-	}
 }
 
 function groupCells() {
@@ -315,11 +315,8 @@ function editAnswer() {
 	for(var i=0; i<answer.length; i++) {
 		$("#answerEditHolder").append('<input type="text" size="1" maxlength="1" value="' + answer.charAt(i) + '" class="answerEdit">');
 	}
-	$(".answerEdit").on("keydown", checkAnswerEditKey);
-	$(".answerEdit").on("keypress", function(){$(this).next().focus();});
 	$("#dlgOverlay").show();
 	$("#answerEditHolder :first").focus();
-	//$("#answerEdit").attr("maxlength", $('#gridOuter [' + currAnswer.dir + '="' + currAnswer.num + '"]').length).val(getAnswer()).focus();
 }
 
 function checkAnswerEditKey(ev) {
