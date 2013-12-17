@@ -1,19 +1,38 @@
 <!DOCTYPE html>
 <html>
 <head>
-	<title>Edit Crossword</title>
+	<title>CrossFill | Edit Crossword</title>
 	<link rel="stylesheet" type="text/css" href="/css/crossFill.css">
+	<link href='http://fonts.googleapis.com/css?family=Lato' rel='stylesheet' type='text/css'>
 </head>
 <body>
-	<h1 id="crosswordTitle">Untitled</h1>
-	<input type="text" id="titleEdit" size="8">
-	<div class="gridOuter"></div>
-	<div id="createControls">
-		<input type="button" value="New Grid" id="newGridBtn">&nbsp;
-		<input type="button" value="Use This Grid" id="createBtn">
+	<div id="editPanel">
+		<div class="titleHolder">
+			<h1 id="crosswordTitle">Untitled</h1>
+			<input type="text" id="titleEdit" size="8">
+		</div>
+		<div id="gridOuter"></div>
+		<div id="createControls">
+			<input type="button" value="New Grid" id="newGridBtn">&nbsp;
+			<input type="button" value="Use This Grid" id="createBtn">
+		</div>
+		<div id="editControls">
+			<input type="button" value="Enter Word" id="enterWord" disabled="disabled">&nbsp;
+			<input type="button" value="Suggest Word" id="suggestWord" disabled="disabled">&nbsp;
+			<input type="button" value="Fill Grid" id="fillGrid" disabled="disabled">
+		</div>
+		<div class="statusHolder">
+			<p id="statusMsg" class="status">Select 'Use this grid' to continue editing.</p>
+		</div>
 	</div>
-	<div id="editControls">
-		<input type="button" value="Whatevs" id="whatevs">
+	<div id="dlgOverlay">
+		<div id="answerDlg">
+			<p id="answerPrompt"></p>
+			<!--<input type="text" id="answerEdit"><br>-->
+			<span id="answerEditHolder"></span><br>
+			<input type="button" value="Use" id="answerUse">&nbsp;
+			<input type="button" value="Cancel" id="answerCancel">
+		</div>
 	</div>
 	<script src="/javascript/jquery-2.0.3.min.js"></script>
 	<!-- <script src="/javascript/general.js"></script> -->

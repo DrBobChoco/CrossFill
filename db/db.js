@@ -1,5 +1,7 @@
 use crossFill
 
+db.crosswords.ensureIndex({userId: 1});
+
 db.grids.ensureIndex({gridLayout: 1}, {unique: true});
 
 // db.grids.insert({gridLayout:"[[],[],[],[],[],[],[],[],[],[],[],[],[],[],[]]"});

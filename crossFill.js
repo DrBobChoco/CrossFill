@@ -85,7 +85,7 @@ var router = bee.route({
 	},
 	"/getCrosswordList": {
 		"POST": function(req, res) {
-			console.log("Get crossword list");
+			console.log("* Get crossword list");
 			async.waterfall([
 					function(callback) {
 						callback(null, req, res);
@@ -97,26 +97,28 @@ var router = bee.route({
 					sendUserCrosswordList
 			], function(err) {
 					if(err) {
-						router.error(req, res);
+						router.error(req, res, err);
 					}
 				});
 		}
 	},
-	"/getGridLayout/`crosswordId`": {
+	"/getCrosswordInfo/`crosswordId`": {
 		"POST": function(req, res, tokens, values) {
+			console.log("* getCrosswordInfo");
+			//console.log(tokens);
 			dbClient.connect(DB_URL, function(err, db) {
 				var coll;
-				if(tokens.crossWordId) {
+				if(tokens.crosswordId != "0") {
 					console.log("Have crosswordId");
 					coll = db.collection("crosswords");
 					var id =  ObjectID.createFromHexString(tokens.crosswordId);
-					sendGridLayout(coll, id, req, res);
+					sendCrosswordInfo(coll, id, req, res);
 				} else {
 					console.log("No valid crosswordId");
 					coll = db.collection("grids");
 					coll.distinct("_id", function(err, ids) {
 						if(ids.length) {
-							sendGridLayout(coll, ids[Math.floor(Math.random()*ids.length)], req, res);
+							sendCrosswordInfo(coll, ids[Math.floor(Math.random()*ids.length)], req, res);
 						} else {
 							router.missing(req, res);
 						}
@@ -128,9 +130,38 @@ var router = bee.route({
 	"/createCrossword": {
 		"POST": function(req, res) {
 			var user;
-			asyncwaterfall([
+			async.waterfall([
 					function(callback) {
-						callback(null);
+						callback(null, req, res);
+					},
+					getLoggedInUser,
+					function(currUser, callback) {
+						user = currUser;
+						callback(null, req);
+					},
+					getPost,
+					function(post, callback) {
+						console.log("* pre createCrossword shim");
+						callback(null, user, post);
+					},
+					createCrossword
+			], function(err, crosswordId) {
+					if(err) {
+						router.error(req, res, err);
+					} else {
+						console.log("going to send...");
+						console.log('{"crosswordId":"' + crosswordId.toHexString() + '"}');
+						sendOK(res, '{"crosswordId":"' + crosswordId.toHexString() + '"}', "application/json");
+					}
+				});
+		}
+	},
+	"/saveItem": {
+		"POST": function(req, res) {
+			var user;
+			async.waterfall([
+					function(callback) {
+						callback(null, req, res);
 					},
 					getLoggedInUser,
 					function(currUser, callback) {
@@ -141,13 +172,14 @@ var router = bee.route({
 					function(post, callback) {
 						callback(null, user, post);
 					},
-					createCrossword
-			], function(err, crosswordId) {
+					saveItem
+			], function(err) {
 					if(err) {
-						router.error(req, res, err.message);
+						console.log("Sending error");
+						console.log(err);
+						router.error(req, res, err);
 					} else {
-						var body = '{"crosswordId": "' + crosswordId.toHexString() + '"}';
-						sendOK(res, body, "application/json");
+						sendOK(res, "Item saved", "text/plain");
 					}
 				});
 		}
@@ -159,12 +191,15 @@ var router = bee.route({
 	}
 });
 
+//================ End Router ================
+
 /**
  * Async waterfall function
  * In: request
  * Out: POST object
  */
 function getPost(req, callback) {
+	console.log("* getPost");
 	var postBody = "";
 	req.on("data", function(data) {
 		postBody += data;
@@ -175,6 +210,7 @@ function getPost(req, callback) {
 	});
 	req.on("end", function() {
 		var post = qs.parse(postBody);
+		//console.log(post);
 		callback(null, post);
 	});
 }
@@ -185,7 +221,7 @@ function getPost(req, callback) {
  * Out: userId, login cookie val
  */
 function doLogin(post, callback) {
-	console.log("doLogin - email: " + post.email + ", password: " + post.password);
+	console.log("* doLogin - email: " + post.email + ", password: " + post.password);
 	if(!post.email || !post.password) {
 			callback(new Error(ERR_MSG.missingLoginData));
 	} else {
@@ -223,7 +259,7 @@ function getLoggedInUser(req, res, callback) {
 	var cookies = new Cookies(req, res);
 	var userId = cookies.get("userId");
 	var loginSecret = cookies.get("loginCheck");
-	console.log("Get logged in user");
+	console.log("* Get logged in user");
 	if(!userId || userId.length != 24 || !loginSecret) {
 		callback(new Error(ERR_MSG.notLoggedIn));
 	} else {
@@ -269,7 +305,7 @@ function loggedInStaticFile(filePath, mediaType) {
 function sendUserCrosswordList(user, response, callback) {
 	dbClient.connect(DB_URL, function(err, db) {
 		var crosswords = db.collection("crosswords");
-		crosswords.find({userId:user._id.toHexString()}, {fields:{_id:1,title:1}}).toArray(function(err, crosswords) {
+		crosswords.find({userId:user._id.toHexString()}, {fields:{_id:1,title:1}, sort:[['title',1]]}).toArray(function(err, crosswords) {
 			if(err) {
 				callback(err);
 			} else {
@@ -283,16 +319,24 @@ function sendUserCrosswordList(user, response, callback) {
 	});
 }
 
-function sendGridLayout(collection, id, request, response) {
+function sendCrosswordInfo(collection, id, request, response) {
 	//console.log("passed id -" + id);
 	collection.findOne({_id:id}, function(err, result) {
 		if(err) {
 			console.log("sGL findOne err -" + err);
-			router.error(request, response, "Error finding gridLayout");
+			router.error(request, response, err);
 		}
 		if(result) {
 			//console.log("result -" + JSON.stringify(result));
-			var body = '{"gridLayout":' + result.gridLayout + ',"id":"' + result._id.toHexString() + '"}';
+			//conditionally add on other info (title, answers, clues)
+			var body = '{"gridLayout":' + result.gridLayout;
+			if(result.title) {
+				body += ',"title":"' + result.title + '"';
+			}
+			if(result.answer) {
+				body += ',"answer":' + JSON.stringify(result.answer);
+			}
+			body += '}';
 			sendOK(response, body, "application/json");
 		} else {
 			router.missing(request, response);
@@ -306,17 +350,56 @@ function sendGridLayout(collection, id, request, response) {
  * Out: new crosswordId object
  */
 function createCrossword(user, post, callback) {
+	console.log("* createCrossword");
 	if(!post.title || !post.gridLayout) {
+		console.log("missing a value");
+		console.log(post);
 		callback(new Error(ERR_MSG.missingCrosswordData));
 	} else {
+		console.log("try insert");
 		dbClient.connect(DB_URL, function(err, db) {
 			var crosswords = db.collection("crosswords");
-			crosswords.insert({userId:user._id.toHexString(), title:post.title, gridLayout:post.gridlayout}, function(err, result) {
+			crosswords.insert({userId:user._id.toHexString(), title:post.title, gridLayout:post.gridLayout}, function(err, result) {
 				if(err) {
+					console.log("insert error");
 					callback(err);
 				} else {
+					console.log("insert success");
 					callback(null, result[0]._id);
 				}
+			});
+		});
+	}
+}
+
+/**
+ * Async waterfall function
+ * In: user, post data
+ * Out: nothing
+ */
+function saveItem(user, post, callback) {
+	console.log("* saveItem");
+	console.log(user);
+	console.log(post);
+	var types = ['title', 'answer', 'clue'];
+	if(!post.crosswordId || !post.itemType || types.indexOf(post.itemType) == -1 || !post.itemData ||
+			(post.itemType != "title" && (!post.direction || !post.number))) {
+		callback(new Error(ERR_MSG.missingCrosswordData));
+	} else {
+		var setData;
+		if(post.itemType == "title") {
+			setData = {title:post.itemData};
+		} else {
+			setData = {};
+			setData[post.itemType + "." + post.direction + "." + post.number] = post.itemData;
+		}
+		dbClient.connect(DB_URL, function(err, db) {
+			var crosswords = db.collection("crosswords");
+			console.log("About to update...");
+			console.log(setData);
+			crosswords.update({_id:ObjectID.createFromHexString(post.crosswordId),userId:user._id.toHexString()},
+					{$set:setData}, function(err) {
+				callback(err);
 			});
 		});
 	}
