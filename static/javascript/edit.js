@@ -1,10 +1,12 @@
+var HILIGHT = "#FFFA97";
+
 var crosswordId = 0;
 var gridLayout = [];
 var currSpace = {
 		row: 0,
 		col: 0
 	};
-var currAnswer = {
+var currClueAnswer = {
 		dir: "",
 		num: 0
 	};
@@ -22,23 +24,25 @@ function initiallise() {
 		$("#gridOuter").on("click", ".space", spaceClick);
 		$("#gridOuter").on("dblclick", ".space", editAnswer);
 		$("#enterWord").on("click", editAnswer);
+		// Answers
+		$("#answerEditHolder").on("keydown", ".answerEdit", checkAnswerEditKey);
+		$("#answerEditHolder").on("keyup", ".answerEdit", function(){$(this).next().focus();});
+		$("#answerUse").on("click", null, "dialog", saveAnswer);
+		$("#answerCancel").on("click", function() { $("#dlgOverlay").hide(); });
+		// Clues
+		$("#cluePanel").on("click", ".clueHolder", clueClick);
+		$("#cluePanel").on("dblclick", ".clueHolder", editClue);
+		$("#cluePanel").on("keydown", ".clueEdit", checkClueEditKey);
 	} else {
 		$("#editControls").hide();
 		$("#newGridBtn").on("click", loadCrossword);
 		$("#createBtn").on("click", createCrossword);
+		$("#cluePanel").hide();
 	}
-	// Handlers
 	// Title
 	$("#crosswordTitle").on("dblclick", editTitle);
 	$("#titleEdit").on("keydown", checkTitleEditKey);
 	$("#titleEdit").on("blur", function() { setTitle(false); });
-	// Answers
-	$("#answerEditHolder").on("keydown", ".answerEdit", checkAnswerEditKey);
-	$("#answerEditHolder").on("keyup", ".answerEdit", function(){$(this).next().focus();});
-
-	$("#answerUse").on("click", null, "dialog", saveAnswer);
-	$("#answerCancel").on("click", function() { $("#dlgOverlay").hide(); });
-	// Questions
 
 	loadCrossword();
 }
@@ -67,14 +71,18 @@ function loadCrossword() {
 			//console.log(JSON.stringify(data));
 			gridLayout = data.gridLayout;
 			makeGrid();
-			if(data.title) {
-				$("#crosswordTitle").text(data.title);
+			if(crosswordId != "0") {
+				if(data.title) {
+					$("#crosswordTitle").text(data.title);
+				}
+				if(data.answer) {
+					fillAnswers(data.answer);
+				}
+				makeClues();
+				if(data.clues) {
+					fillClues(data.clues);
+				}
 			}
-			if(data.answer) {
-				fillAnswers(data.answer);
-			}
-			//set up clue entries as needed by grid
-			//fill clue entries
 		},
 		error: function(jqXHR, stat, err) {
 			console.log("getCrosswordInfo: " + stat);
@@ -163,7 +171,7 @@ function groupCells() {
 			}
 
 			if(clueStart) {
-				$('#gridOuter [row="' + row + '"][col="' + col + '"]').append('<div class="clueNum" clueNum="' + currAnswerNum + '">' + currAnswerNum + '</div>');
+				$('#gridOuter [row="' + row + '"][col="' + col + '"]').append('<div class="answerNum" answerNum="' + currAnswerNum + '">' + currAnswerNum + '</div>');
 				currAnswerNum++;
 			}
 		}
@@ -228,17 +236,19 @@ function spaceClick() {
 			dir = ($(this).attr("across") ? "across" : "down");
 		} else {
 			//console.log("Chage direction");
-			dir = (currAnswer.dir == "across" ? "down" : "across");
+			dir = (currClueAnswer.dir == "across" ? "down" : "across");
 		}
 
 		//console.log("dir -" + dir);
 
 		$("#gridOuter .space").css("background-color", "white");
+		$(".clueHolder").css("background-color", "white");
 		//console.log("Selector -" + 'gridOuter [' + dir + '="' + $(this).attr(dir) + '"]' + "-");
-		$('#gridOuter [' + dir + '="' + $(this).attr(dir) + '"]').css("background-color", "#FFFA97");
+		$('#gridOuter [' + dir + '="' + $(this).attr(dir) + '"]').css("background-color", HILIGHT);
+		$('.clueHolder[dir="' + dir + '"][clueNum="' + $(this).attr(dir) + '"]').css("background-color", HILIGHT);
 
-		currAnswer.dir = dir;
-		currAnswer.num = $(this).attr(dir);
+		currClueAnswer.dir = dir;
+		currClueAnswer.num = $(this).attr(dir);
 		currSpace.row = $(this).attr("row");
 		currSpace.col = $(this).attr("col");
 	}
@@ -248,37 +258,26 @@ function spaceClick() {
 function getAnswer(dir, num) { //pass nothing to get currently selected answer
 	//console.log("* getAnswer");
 	if(!dir) {
-		dir = currAnswer.dir;
+		dir = currClueAnswer.dir;
 	}
 	if(!num) {
-		num = currAnswer.num;
+		num = currClueAnswer.num;
 	}
 	var answerText = "";
-	//var thisLetter;
 	var answerCells = $('#gridOuter [' + dir + '="' + num + '"] p');
-	//var allSpaces = true;
 	for(var i=0; i<answerCells.length; i++) {
-		//thisLetter = $(answerCells[i]).text();
-		//console.log("Got " + thisLetter);
-		//answerText += thisLetter; // poss charAt(0) as a safeguard?
 		answerText += $(answerCells[i]).text();
-		//if(thisLetter != " ") {
-		//	allSpaces = false;
-		//}
 	}
-	//if(allSpaces) {
-	//	answerText = "";
-	//}
 	//console.log("Returning " + answerText);
 	return answerText;
 }
 
 function setAnswer(newAnswer, dir, num) {
 	if(!dir) {
-		dir = currAnswer.dir;
+		dir = currClueAnswer.dir;
 	}
 	if(!num) {
-		num = currAnswer.num;
+		num = currClueAnswer.num;
 	}
 	var answerCells = $('#gridOuter [' + dir + '="' + num + '"] p');
 	if(answerCells.length != newAnswer.length) {
@@ -309,7 +308,7 @@ function fillAnswers(answers) {
 }
 
 function editAnswer() {
-	$("#answerPrompt").text("Answer for " + currAnswer.num + " " + currAnswer.dir + ":");
+	$("#answerPrompt").text("Answer for " + currClueAnswer.num + " " + currClueAnswer.dir + ":");
 	$("#answerEditHolder").empty();
 	var answer = getAnswer();
 	for(var i=0; i<answer.length; i++) {
@@ -341,7 +340,7 @@ function saveAnswer(ev) {
 		}
 	}
 	//console.log("About to save answer: " + answer);
-	saveItem({itemType:"answer", direction:currAnswer.dir, number:currAnswer.num, itemData:answer.toUpperCase()}, answerCB);
+	saveItem({itemType:"answer", direction:currClueAnswer.dir, number:currClueAnswer.num, itemData:answer.toUpperCase()}, answerCB);
 }
 
 function answerCB(saveData) {
@@ -353,7 +352,80 @@ function answerCB(saveData) {
 
 //================ Clue Stuff ================
 
+function clueClick() {
+	//hilight clue and answer
+	console.log("* clueClick");
+	$("#gridOuter .space").css("background-color", "white");
+	$(".clueHolder").css("background-color", "white");
+	$(this).css("background-color", HILIGHT);
+	console.log('space: #gridOuter [' + $(this).attr("dir") + '="' + $(this).attr("clueNum") + '"]')
+	$('#gridOuter [' + $(this).attr("dir") + '="' + $(this).attr("clueNum") + '"]').css("background-color", HILIGHT);
+	currClueAnswer.dir = $(this).attr("dir");
+	currClueAnswer.num = $(this).attr("clueNum");
+}
+
+function makeClues() {
+	console.log("* makeClues");
+	var i;
+	for(i=0; i<acrossClues.length; i++) {
+		//console.log("Appending " + acrossClues[i] + " across");
+		$("#acrossClues").append('<div><div class="clueHolder" dir="across" clueNum="' + acrossClues[i] + '"><span class="clueNum">' + acrossClues[i] + '</span><span class="clue" dir="across" clueNum="' + acrossClues[i] + '"></span><input type="text" class="clueEdit" dir="across" clueNum="' + acrossClues[i] + '"></div></div>');
+	}
+	for(i=0; i<downClues.length; i++) {
+		$("#downClues").append('<div><div class="clueHolder" dir="down" clueNum="' + downClues[i] + '"><span class="clueNum">' + downClues[i] + '</span><span class="clue" dir="down" clueNum="' + downClues[i] + '"></span><input type="text" class="clueEdit" dir="down" clueNum="' + downClues[i] + '"></div></div>');
+	}
+	$(".clueEdit").hide();
+}
+
+function fillClues(clues) {
+	var i;
+	if(cluess.across) {
+		for(i=0; i<acrossClues.length; i++) {
+			if(clues.across[acrossClues[i]]) {
+				$('.clue[dir="across"][clueNum="' + acrossClues[i] + '"]').text(clues.across[acrossClues[i]]);
+			}
+		}
+	}
+	if(clues.down) {
+		for(i=0; i<downClues.length; i++) {
+			if(clues.down[downClues[i]]) {
+				$('.clue[dir="down"][clueNum="' + downClues[i] + '"]').text(clues.down[downClues[i]]);
+			}
+		}
+	}
+}
+
 function editClue() {
+	$('.clueHolder .clueEdit[dir="' + currClueAnswer.dir + '"][clueNum="' + currClueAnswer.num + '"]').val($('.clueHolder .clue[dir="' + currClueAnswer.dir + '"][clueNum="' + currClueAnswer.num + '"]').text());
+	$('.clueHolder .clue[dir="' + currClueAnswer.dir + '"][clueNum="' + currClueAnswer.num + '"]').hide();
+	$('.clueHolder .clueEdit[dir="' + currClueAnswer.dir + '"][clueNum="' + currClueAnswer.num + '"]').show();
+}
+
+function checkClueEditKey(ev) {
+	//console.log(ev);
+	if(ev.keyCode == 13) { //enter
+		//console.log("Enter");
+		saveItem({itemType:"clue", direction:currClueAnswer.dir, number:currClueAnswer.num, itemData:$(this).val().toUpperCase()}, clueCB);
+	} else if(ev.keyCode == 27) { //esc
+		console.log("Esc");
+		setClue(false);
+	}
+}
+
+function clueCB(saveData) {
+	console.log("clueCb");
+	console.log(saveData);
+	if(!saveData.error) {
+		setClue(true);
+	}
+}
+
+function setClue(update) {
+	if(update) {
+		$('.clueHolder .clue[dir="' + currClueAnswer.dir + '"][clueNum="' + currClueAnswer.num + '"]').text($('.clueHolder .clueEdit[dir="' + currClueAnswer.dir + '"][clueNum="' + currClueAnswer.num + '"]').val());
+	}
+	$('.clueHolder .clueEdit[dir="' + currClueAnswer.dir + '"][clueNum="' + currClueAnswer.num + '"]').hide();
+	$('.clueHolder .clue[dir="' + currClueAnswer.dir + '"][clueNum="' + currClueAnswer.num + '"]').show();
 }
 
 //================ Misc Stuff ================
