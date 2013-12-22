@@ -79,8 +79,8 @@ function loadCrossword() {
 					fillAnswers(data.answer);
 				}
 				makeClues();
-				if(data.clues) {
-					fillClues(data.clues);
+				if(data.clue) {
+					fillClues(data.clue);
 				}
 			}
 		},
@@ -142,35 +142,35 @@ function groupCells() {
 	var currAnswerNum = 1;
 	for(row=1; row<=15; row++) {
 		for(col=1; col<=15; col++) {
-			clueStart = false;
+			answerStart = false;
 
 			if($('#gridOuter [row="' + row + '"][col="' + col + '"]')[0] &&
 			  (row == 1 || !$('#gridOuter [row="' + (row-1) + '"][col="' + col + '"]')[0]) &&
 			  $('#gridOuter [row="' + (row+1) + '"][col="' + col + '"]')[0]) {
 
-				clueStart = true;
+				answerStart = true;
 				downClues.push(currAnswerNum);
-				clueRow = row;
+				answerRow = row;
 				do {
-					$('#gridOuter [row="' + clueRow + '"][col="' + col + '"]').attr('down', currAnswerNum);
-					clueRow++;
-				} while($('#gridOuter [row="' + clueRow + '"][col="' + col + '"]')[0]);
+					$('#gridOuter [row="' + answerRow + '"][col="' + col + '"]').attr('down', currAnswerNum);
+					answerRow++;
+				} while($('#gridOuter [row="' + answerRow + '"][col="' + col + '"]')[0]);
 			}
 
 			if($('#gridOuter [row="' + row + '"][col="' + col + '"]')[0] &&
 			  (col == 1 || !$('#gridOuter [row="' + row + '"][col="' + (col-1) + '"]')[0]) &&
 			  $('#gridOuter [row="' + row + '"][col="' + (col+1) + '"]')[0]) {
 
-				clueStart = true;
+				answerStart = true;
 				acrossClues.push(currAnswerNum);
-				clueCol = col;
+				answerCol = col;
 				do {
-					$('#gridOuter [row="' + row + '"][col="' + clueCol + '"]').attr('across', currAnswerNum);
-					clueCol++;
-				} while($('#gridOuter [row="' + row + '"][col="' + clueCol + '"]')[0]);
+					$('#gridOuter [row="' + row + '"][col="' + answerCol + '"]').attr('across', currAnswerNum);
+					answerCol++;
+				} while($('#gridOuter [row="' + row + '"][col="' + answerCol + '"]')[0]);
 			}
 
-			if(clueStart) {
+			if(answerStart) {
 				$('#gridOuter [row="' + row + '"][col="' + col + '"]').append('<div class="answerNum" answerNum="' + currAnswerNum + '">' + currAnswerNum + '</div>');
 				currAnswerNum++;
 			}
@@ -354,18 +354,18 @@ function answerCB(saveData) {
 
 function clueClick() {
 	//hilight clue and answer
-	console.log("* clueClick");
+	//console.log("* clueClick");
 	$("#gridOuter .space").css("background-color", "white");
 	$(".clueHolder").css("background-color", "white");
 	$(this).css("background-color", HILIGHT);
-	console.log('space: #gridOuter [' + $(this).attr("dir") + '="' + $(this).attr("clueNum") + '"]')
+	//console.log('space: #gridOuter [' + $(this).attr("dir") + '="' + $(this).attr("clueNum") + '"]')
 	$('#gridOuter [' + $(this).attr("dir") + '="' + $(this).attr("clueNum") + '"]').css("background-color", HILIGHT);
 	currClueAnswer.dir = $(this).attr("dir");
 	currClueAnswer.num = $(this).attr("clueNum");
 }
 
 function makeClues() {
-	console.log("* makeClues");
+	//console.log("* makeClues");
 	var i;
 	for(i=0; i<acrossClues.length; i++) {
 		//console.log("Appending " + acrossClues[i] + " across");
@@ -378,8 +378,10 @@ function makeClues() {
 }
 
 function fillClues(clues) {
+	//console.log("* fillClues");
+	//console.log(clues);
 	var i;
-	if(cluess.across) {
+	if(clues.across) {
 		for(i=0; i<acrossClues.length; i++) {
 			if(clues.across[acrossClues[i]]) {
 				$('.clue[dir="across"][clueNum="' + acrossClues[i] + '"]').text(clues.across[acrossClues[i]]);
@@ -398,14 +400,14 @@ function fillClues(clues) {
 function editClue() {
 	$('.clueHolder .clueEdit[dir="' + currClueAnswer.dir + '"][clueNum="' + currClueAnswer.num + '"]').val($('.clueHolder .clue[dir="' + currClueAnswer.dir + '"][clueNum="' + currClueAnswer.num + '"]').text());
 	$('.clueHolder .clue[dir="' + currClueAnswer.dir + '"][clueNum="' + currClueAnswer.num + '"]').hide();
-	$('.clueHolder .clueEdit[dir="' + currClueAnswer.dir + '"][clueNum="' + currClueAnswer.num + '"]').show();
+	$('.clueHolder .clueEdit[dir="' + currClueAnswer.dir + '"][clueNum="' + currClueAnswer.num + '"]').show().focus();
 }
 
 function checkClueEditKey(ev) {
 	//console.log(ev);
 	if(ev.keyCode == 13) { //enter
 		//console.log("Enter");
-		saveItem({itemType:"clue", direction:currClueAnswer.dir, number:currClueAnswer.num, itemData:$(this).val().toUpperCase()}, clueCB);
+		saveItem({itemType:"clue", direction:currClueAnswer.dir, number:currClueAnswer.num, itemData:$(this).val()}, clueCB);
 	} else if(ev.keyCode == 27) { //esc
 		console.log("Esc");
 		setClue(false);

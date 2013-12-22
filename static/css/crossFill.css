@@ -54,24 +54,12 @@ body {
 	font-family: 'Lato', sans-serif;
 }
 
-h2 {
-	font-size: 160%;
-}
-
-.titleHolder {
-	height: 45px;
-	display: table-cell;
-	vertical-align: middle;
-}
-
 h1, #crosswordTitle, #titleEdit {
 	font-size: 200%;
 }
 
-#titleEdit {
-	display: block;
-	margin: 0px;
-	/* border-style: none; */
+h2 {
+	font-size: 160%;
 }
 
 #editPanel {
@@ -81,9 +69,21 @@ h1, #crosswordTitle, #titleEdit {
 	top: 0px;
 	*/
 	width: 480px;
-	/*margin: 10px 20px;*/
-	margin: 0px 40px 0px 20px;
+	margin: 10px 20px;
+	/*margin: 0px 40px 0px 20px;*/
 	float: left;
+}
+
+.titleHolder {
+	height: 45px;
+	display: table-cell;
+	vertical-align: middle;
+}
+
+#titleEdit {
+	display: block;
+	margin: 0px;
+	/* border-style: none; */
 }
 
 #gridOuter {
@@ -135,13 +135,14 @@ h1, #crosswordTitle, #titleEdit {
 }
 
 #cluePanel {
-	margin-top: 40px;
-	/*float: right;*/
+	margin-top: 60px;
+	float: left;
 }
 
-#acrossClues {
+#acrossClues,#downClues {
 	float: left;
-	width: 20%;
+	width: 48%;
+	padding: 0px 5px;
 }
 
 .clueHolder {
@@ -152,6 +153,10 @@ h1, #crosswordTitle, #titleEdit {
 	width: 30px;
 	text-align: right;
 	margin-right: 10px;
+}
+
+.clue {
+	width: 60px;
 }
 
 #dlgOverlay {

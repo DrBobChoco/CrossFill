@@ -336,6 +336,9 @@ function sendCrosswordInfo(collection, id, request, response) {
 			if(result.answer) {
 				body += ',"answer":' + JSON.stringify(result.answer);
 			}
+			if(result.clue) {
+				body += ',"clue":' + JSON.stringify(result.clue);
+			}
 			body += '}';
 			sendOK(response, body, "application/json");
 		} else {
