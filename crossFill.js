@@ -16,6 +16,7 @@ var ERR_MSG = {
 	notLoggedIn: "User not logged in",
 	userNotFound: "User not found"
 };
+var MAX_SUGGESTIONS = 8;
 
 var bee = require("beeline");
 var router = bee.route({
@@ -182,6 +183,39 @@ var router = bee.route({
 						sendOK(res, "Item saved", "text/plain");
 					}
 				});
+		}
+	},
+	"/getSuggestedWords/`pattern`": {
+		"POST": function(req, res, tokens, values) {
+			console.log("* suggestWords");
+			dbClient.connect(DB_URL, function(err, db) {
+				console.log("Pattern before -" + tokens.pattern + "-");
+				var pattern = tokens.pattern.replace(/%20/g, ' ').toUpperCase();
+				console.log("Pattern after -" + pattern + "-");
+				var criteria = {};
+				criteria.numChars = pattern.length;
+				for(var i=0; i<pattern.length; i++) {
+					if(pattern.charAt(i) != " ") {
+						criteria["letters." + i] = pattern.charAt(i);
+					}
+				}
+				console.log("Criteria:");
+				console.log(criteria);
+				var words = db.collection("words");
+				words.count(criteria, function(err, count) {
+					if(err) {
+						router.error(req, res, err);
+					} else {
+						var skip = Math.random() * (MAX_SUGGESTIONS < count ? count - MAX_SUGGESTIONS : 0);
+						words.find(criteria, {sort:[['rnd',1]], skip:skip, limit:MAX_SUGGESTIONS}).toArray(function(err, words) {
+							if(err) {
+								router.error(req, res, err);
+							} else {
+								sendOK(res, '{"words":' + JSON.stringify(words) + '}', "application/json"); }
+						});
+					}
+				});
+			});
 		}
 	},
 

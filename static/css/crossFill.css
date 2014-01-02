@@ -169,7 +169,7 @@ h2 {
 	z-index: 1000;
 }
 
-#answerDlg {
+#answerDlg, #suggestedDlg {
 	display: inline-block;
 	background-color: #FFFFFF;
 	outline: #F8F8F8 solid 10px;

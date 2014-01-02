@@ -18,7 +18,7 @@
 		</div>
 		<div id="editControls">
 			<input type="button" value="Enter Word" id="enterWord" disabled="disabled">&nbsp;
-			<input type="button" value="Suggest Word" id="suggestWord" disabled="disabled">&nbsp;
+			<input type="button" value="Suggest Words" id="suggestWords" disabled="disabled">&nbsp;
 			<input type="button" value="Fill Grid" id="fillGrid" disabled="disabled">
 		</div>
 		<div class="statusHolder">
@@ -32,10 +32,16 @@
 	<div id="dlgOverlay">
 		<div id="answerDlg">
 			<p id="answerPrompt"></p>
-			<!--<input type="text" id="answerEdit"><br>-->
 			<span id="answerEditHolder"></span><br>
 			<input type="button" value="Use" id="answerUse">&nbsp;
 			<input type="button" value="Cancel" id="answerCancel">
+		</div>
+		<div id="suggestedDlg">
+			<p>Suggested words:</p>
+			<p id="suggestedNoWords">No words fit that answer</p>
+			<select id="suggestedSelect" size="4"></select><br>
+			<input type="button" value="Use" id="suggestedUse">&nbsp;
+			<input type="button" value="Cancel" id="suggestedCancel">
 		</div>
 	</div>
 	<script src="/javascript/jquery-2.0.3.min.js"></script>

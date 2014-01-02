@@ -22,6 +22,7 @@ dbClient.connect(DB_URL, function(err, db) {
 		if(wordEntry.word.length) {
 			wordEntry.letters = wordEntry.word.toUpperCase().replace(/[^A-Z]/g, "").split("");
 			wordEntry.numChars = wordEntry.letters.length;
+			wordEntry.rnd = Math.random();
 
 			words.insert(wordEntry, function(err) { if(err) console.log(err); });
 			done++;

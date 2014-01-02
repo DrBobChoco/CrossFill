@@ -13,22 +13,31 @@ var currClueAnswer = {
 // arrays of clue numbers
 var acrossClues = [];
 var downClues = [];
+var suggestedLetters;
 
 function initiallise() {
 	$("#titleEdit").hide();
 	$("#dlgOverlay").hide();
+	$("#answerDlg").hide();
+	$("#suggestedDlg").hide();
 	crosswordId = getURLId();
 	if(crosswordId != "0") {
 		$("#createControls").hide();
 		$("#statusMsg").hide();
 		$("#gridOuter").on("click", ".space", spaceClick);
 		$("#gridOuter").on("dblclick", ".space", editAnswer);
+		// Edit controls
 		$("#enterWord").on("click", editAnswer);
+		$("#suggestWords").on("click", getSuggestedWords);
+		//$("#fillGrid").on("click", );
 		// Answers
-		$("#answerEditHolder").on("keydown", ".answerEdit", checkAnswerEditKey);
-		$("#answerEditHolder").on("keyup", ".answerEdit", function(){$(this).next().focus();});
-		$("#answerUse").on("click", null, "dialog", saveAnswer);
-		$("#answerCancel").on("click", function() { $("#dlgOverlay").hide(); });
+		$("#answerEditHolder").on("keydown", ".answerEdit", "#answerDlg", checkAnswerKey);
+		$("#answerEditHolder").on("keyup", ".answerEdit", function() { $(this).next().focus(); });
+		$("#answerUse").on("click", null, "#answerDlg", saveAnswer);
+		$("#answerCancel").on("click", function() { hideDialog("#answerDlg"); });
+		$("#suggestedDlg").on("keydown", null, "#suggestedDlg", checkAnswerKey);
+		$("#suggestedUse").on("click", null, "#suggestedDlg", saveAnswer);
+		$("#suggestedCancel").on("click", function() { hideDialog("#suggestedDlg"); });
 		// Clues
 		$("#cluePanel").on("click", ".clueHolder", clueClick);
 		$("#cluePanel").on("dblclick", ".clueHolder", editClue);
@@ -253,20 +262,22 @@ function spaceClick() {
 		currSpace.col = $(this).attr("col");
 	}
 	$("#enterWord").removeAttr("disabled");
+	$("#suggestWords").removeAttr("disabled");
 }
 
-function getAnswer(dir, num) { //pass nothing to get currently selected answer
-	//console.log("* getAnswer");
+function getAnswer(onlyCross, dir, num) { //pass nothing to get currently selected answer
+	//console.log("* getAnswer -" + onlyCross + "-" + dir + "-" + num + "-");
 	if(!dir) {
-		dir = currClueAnswer.dir;
+		var dir = currClueAnswer.dir;
 	}
 	if(!num) {
-		num = currClueAnswer.num;
+		var num = currClueAnswer.num;
 	}
+	var otherDir = (dir == "across" ? "down" : "across");
 	var answerText = "";
 	var answerCells = $('#gridOuter [' + dir + '="' + num + '"] p');
 	for(var i=0; i<answerCells.length; i++) {
-		answerText += $(answerCells[i]).text();
+		answerText += ((!onlyCross || $(answerCells[i]).parent().attr(otherDir)) ? $(answerCells[i]).text() : " ");
 	}
 	//console.log("Returning " + answerText);
 	return answerText;
@@ -314,39 +325,104 @@ function editAnswer() {
 	for(var i=0; i<answer.length; i++) {
 		$("#answerEditHolder").append('<input type="text" size="1" maxlength="1" value="' + answer.charAt(i) + '" class="answerEdit">');
 	}
-	$("#dlgOverlay").show();
+	showDialog("#answerDlg");
 	$("#answerEditHolder :first").focus();
 }
 
-function checkAnswerEditKey(ev) {
+function checkAnswerKey(ev) {
 	console.log(ev);
 	if(ev.keyCode == 13) { //enter
 		console.log("Enter");
-		ev.data = "dialog";
 		saveAnswer(ev);
 	} else if(ev.keyCode == 27) { //esc
 		console.log("Esc");
-		$("#dlgOverlay").hide();
+		hideDialog(ev.data);
+	}
+}
+
+function XXcheckAnswerEditKey(ev) {
+	console.log(ev);
+	if(ev.keyCode == 13) { //enter
+		console.log("Enter");
+		ev.data = "#answerDlg";
+		saveAnswer(ev);
+	} else if(ev.keyCode == 27) { //esc
+		console.log("Esc");
+		hideDialog("#answerDlg");
+	}
+}
+
+function getSuggestedWords() {
+	$.ajax({
+		url: "/getSuggestedWords/" + getAnswer(true).replace(/ /g, "%20"),
+		type: "POST",
+		dataType: "json",
+		success: function(data, stat, jqXHR) {
+			console.log("Suggested words:");
+			console.log(data);
+			suggestedLetters = [];
+			var words = data.words;
+			if(words.length) {
+				$("#suggestedSelect").empty();
+				for(var i=0; i<words.length; i++) {
+					$("#suggestedSelect").append('<option value="' + i + '"' + (i?"":" selected") + '>'+ words[i].word + '</option>');
+					suggestedLetters[i] = words[i].letters;
+				}
+				$("#suggestedUse").removeAttr("disabled");
+				$("#suggestedSelect").show();
+				$("#suggestedNoWords").hide();
+			} else {
+				$("#suggestedUse").attr("disabled", "disabled");
+				$("#suggestedNoWords").show();
+				$("#suggestedSelect").hide();
+			}
+			showDialog("#suggestedDlg");
+			$("#suggestedSelect").focus();
+		},
+		error: function(jqXHR, stat, err) {
+			console.log("getSuggestedWords: " + stat);
+			console.log(err);
+		}
+	});
+}
+
+function XXcheckSuggestedKey(ev) {
+	console.log(ev);
+	if(ev.keyCode == 13) { //enter
+		console.log("Enter");
+		ev.data = "#suggestedDlg";
+		saveAnswer(ev);
+	} else if(ev.keyCode == 27) { //esc
+		console.log("Esc");
+		hideDialog("#suggestedDlg");
 	}
 }
 
 function saveAnswer(ev) {
 	//console.log("* saveAnswer");
 	var answer = "";
-	if(ev.data == "dialog") {
-		var letters = $("#answerEditHolder .answerEdit");
-		for(var i=0; i<letters.length; i++) {
+	var letters, i;
+	if(ev.data == "#answerDlg") {
+		letters = $("#answerEditHolder .answerEdit");
+		for(i=0; i<letters.length; i++) {
 			answer += $(letters[i]).val();
 		}
 	}
-	//console.log("About to save answer: " + answer);
-	saveItem({itemType:"answer", direction:currClueAnswer.dir, number:currClueAnswer.num, itemData:answer.toUpperCase()}, answerCB);
+	if(ev.data == "#suggestedDlg") {
+		letters = suggestedLetters[$("#suggestedSelect").val()];
+		for(i=0; i<letters.length; i++) {
+			answer += letters[i];
+		}
+	}
+
+	console.log("About to save answer: " + answer);
+	saveItem({itemType:"answer", direction:currClueAnswer.dir, number:currClueAnswer.num, itemData:answer.toUpperCase(), dialog:ev.data}, answerCB);
 }
 
 function answerCB(saveData) {
 	if(!saveData.error) {
 		setAnswer(saveData.itemData);
-		$("#dlgOverlay").hide();
+		hideDialog(saveData.dialog);
 	}
 }
 
@@ -456,6 +532,16 @@ function saveItem(saveData, callback) {
 			}
 		}
 	});
+}
+
+function showDialog(selector) {
+	$(selector).show();
+	$("#dlgOverlay").show();
+}
+
+function hideDialog(selector) {
+	$("#dlgOverlay").hide();
+	$(selector).hide();
 }
 
 function flashStatusMsg(msg, error) {
