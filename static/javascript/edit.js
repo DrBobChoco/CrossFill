@@ -10,9 +10,9 @@ var currClueAnswer = {
 		dir: "",
 		num: 0
 	};
-// arrays of clue numbers
-var acrossClues = [];
-var downClues = [];
+// also use as list of which answers exist in each direction
+var acrossAnswerLocked = [];
+var downAnswerLocked = [];
 var suggestedLetters;
 
 function initiallise() {
@@ -158,7 +158,8 @@ function groupCells() {
 			  $('#gridOuter [row="' + (row+1) + '"][col="' + col + '"]')[0]) {
 
 				answerStart = true;
-				downClues.push(currAnswerNum);
+				//downAnswerLocked.push(currAnswerNum);
+				downAnswerLocked[currAnswerNum] = false;
 				answerRow = row;
 				do {
 					$('#gridOuter [row="' + answerRow + '"][col="' + col + '"]').attr('down', currAnswerNum);
@@ -171,7 +172,8 @@ function groupCells() {
 			  $('#gridOuter [row="' + row + '"][col="' + (col+1) + '"]')[0]) {
 
 				answerStart = true;
-				acrossClues.push(currAnswerNum);
+				//acrossAnswerLocked.push(currAnswerNum);
+				acrossAnswerLocked[currAnswerNum] = false;
 				answerCol = col;
 				do {
 					$('#gridOuter [row="' + row + '"][col="' + answerCol + '"]').attr('across', currAnswerNum);
@@ -233,6 +235,7 @@ function setTitle(update) {
 
 //================ Answer Stuff ================
 
+// Todo - check if locked, disable suggest button
 function spaceClick() {
 	//console.log("Click on r" + $(this).attr("row") + ",c" + $(this).attr("col"));
 	//console.log("Part of (" + $(this).attr("across") + ") across, (" + $(this).attr("down") + ") down");
@@ -303,16 +306,19 @@ function setAnswer(newAnswer, dir, num) {
 function fillAnswers(answers) {
 	var i;
 	if(answers.across) {
-		for(i=0; i<acrossClues.length; i++) {
-			if(answers.across[acrossClues[i]]) {
-				setAnswer(answers.across[acrossClues[i]], "across", acrossClues[i]);
+		//for(i=0; i<acrossAnswerLocked.length; i++) {
+		for(i in acrossAnswerLocked) {
+			//if(answers.across[acrossAnswerLocked[i]]) {
+			if(answers.across[i]) {
+				//setAnswer(answers.across[acrossAnswerLocked[i]], "across", acrossAnswerLocked[i]);
+				setAnswer(answers.across[i], "across", i);
 			}
 		}
 	}
 	if(answers.down) {
-		for(i=0; i<downClues.length; i++) {
-			if(answers.down[downClues[i]]) {
-				setAnswer(answers.down[downClues[i]], "down", downClues[i]);
+		for(i in downAnswerLocked) {
+			if(answers.down[i]) {
+				setAnswer(answers.down[i], "down", i);
 			}
 		}
 	}
@@ -443,12 +449,14 @@ function clueClick() {
 function makeClues() {
 	//console.log("* makeClues");
 	var i;
-	for(i=0; i<acrossClues.length; i++) {
-		//console.log("Appending " + acrossClues[i] + " across");
-		$("#acrossClues").append('<div><div class="clueHolder" dir="across" clueNum="' + acrossClues[i] + '"><span class="clueNum">' + acrossClues[i] + '</span><span class="clue" dir="across" clueNum="' + acrossClues[i] + '"></span><input type="text" class="clueEdit" dir="across" clueNum="' + acrossClues[i] + '"></div></div>');
+	//for(i=0; i<acrossAnswerLocked.length; i++) {
+	for(i in acrossAnswerLocked) {
+		//console.log("Appending " + acrossAnswerLocked[i] + " across");
+		//$("#acrossClues").append('<div><div class="clueHolder" dir="across" clueNum="' + acrossAnswerLocked[i] + '"><span class="clueNum">' + acrossAnswerLocked[i] + '</span><span class="clue" dir="across" clueNum="' + acrossAnswerLocked[i] + '"></span><input type="text" class="clueEdit" dir="across" clueNum="' + acrossAnswerLocked[i] + '"></div></div>');
+		$("#acrossClues").append('<div><div class="clueHolder" dir="across" clueNum="' + i + '"><span class="clueNum">' + i + '</span><span class="clue" dir="across" clueNum="' + i + '"></span><input type="text" class="clueEdit" dir="across" clueNum="' + i + '"></div></div>');
 	}
-	for(i=0; i<downClues.length; i++) {
-		$("#downClues").append('<div><div class="clueHolder" dir="down" clueNum="' + downClues[i] + '"><span class="clueNum">' + downClues[i] + '</span><span class="clue" dir="down" clueNum="' + downClues[i] + '"></span><input type="text" class="clueEdit" dir="down" clueNum="' + downClues[i] + '"></div></div>');
+	for(i in downAnswerLocked) {
+		$("#downClues").append('<div><div class="clueHolder" dir="down" clueNum="' + i + '"><span class="clueNum">' + i + '</span><span class="clue" dir="down" clueNum="' + i + '"></span><input type="text" class="clueEdit" dir="down" clueNum="' + i + '"></div></div>');
 	}
 	$(".clueEdit").hide();
 }
@@ -458,16 +466,19 @@ function fillClues(clues) {
 	//console.log(clues);
 	var i;
 	if(clues.across) {
-		for(i=0; i<acrossClues.length; i++) {
-			if(clues.across[acrossClues[i]]) {
-				$('.clue[dir="across"][clueNum="' + acrossClues[i] + '"]').text(clues.across[acrossClues[i]]);
+		//for(i=0; i<acrossAnswerLocked.length; i++) {
+		for(i in acrossAnswerLocked) {
+			//if(clues.across[acrossAnswerLocked[i]]) {
+			if(clues.across[i]) {
+				//$('.clue[dir="across"][clueNum="' + acrossAnswerLocked[i] + '"]').text(clues.across[acrossAnswerLocked[i]]);
+				$('.clue[dir="across"][clueNum="' + i + '"]').text(clues.across[i]);
 			}
 		}
 	}
 	if(clues.down) {
-		for(i=0; i<downClues.length; i++) {
-			if(clues.down[downClues[i]]) {
-				$('.clue[dir="down"][clueNum="' + downClues[i] + '"]').text(clues.down[downClues[i]]);
+		for(i in downAnswerLocked) {
+			if(clues.down[i]) {
+				$('.clue[dir="down"][clueNum="' + i + '"]').text(clues.down[i]);
 			}
 		}
 	}
