@@ -1,18 +1,26 @@
 var HILIGHT = "#FFFA97";
+var UNLOCKED = "red";
+var LOCKED = "#444";
+var BOTH_DIRS = ['across', 'down'];
+function otherDir(dir) {
+	return  dir == 'across' ? 'down' : 'across';
+};
 
 var crosswordId = 0;
 var gridLayout = [];
 var currSpace = {
-		row: 0,
-		col: 0
-	};
+	row: 0,
+	col: 0
+};
 var currClueAnswer = {
-		dir: "",
-		num: 0
-	};
+	dir: "",
+	num: 0
+};
 // also use as list of which answers exist in each direction
-var acrossAnswerLocked = [];
-var downAnswerLocked = [];
+var answerLocked = {
+	'across': [],
+	'down': []
+};
 var suggestedLetters;
 
 function initiallise() {
@@ -30,6 +38,7 @@ function initiallise() {
 		$("#enterWord").on("click", editAnswer);
 		$("#suggestWords").on("click", getSuggestedWords);
 		//$("#fillGrid").on("click", );
+		$("#lockUnlock").on("click", toggleCurrAnswerLock);
 		// Answers
 		$("#answerEditHolder").on("keydown", ".answerEdit", "#answerDlg", checkAnswerKey);
 		$("#answerEditHolder").on("keyup", ".answerEdit", function() { $(this).next().focus(); });
@@ -84,12 +93,31 @@ function loadCrossword() {
 				if(data.title) {
 					$("#crosswordTitle").text(data.title);
 				}
+				//fill answers
 				if(data.answer) {
-					fillAnswers(data.answer);
+					foreachClueAnswer(function(dir, num, answers) {
+						if(answers[dir][num]) {
+							setAnswer(answers[dir][num], dir, num);
+						}
+					}, data.answer);
 				}
-				makeClues();
+				//lock answers
+				if(data.answerLocked) {
+					foreachClueAnswer(function(dir, num, locked) {
+						if(locked[dir][num]) answerLocked[dir][num] = true;
+					}, data.answerLocked);
+				}
+				markLockedAnswers();
+				//make clues
+				foreachClueAnswer(function(dir, i) {
+					$("#" + dir + "Clues").append('<div><div class="clueHolder" dir="' + dir + '" clueNum="' + i + '"><span class="clueNum">' + i + '</span><span class="clue" dir="' + dir + '" clueNum="' + i + '"></span><input type="text" class="clueEdit" dir="' + dir + '" clueNum="' + i + '"></div></div>');
+				});
+				$(".clueEdit").hide();
+				//fill clues
 				if(data.clue) {
-					fillClues(data.clue);
+					foreachClueAnswer(function(dir, num, clues) {
+						if(clues[dir][num]) $('.clue[dir="' + dir + '"][clueNum="' + num + '"]').text(clues[dir][num]);
+					}, data.clue);
 				}
 			}
 		},
@@ -158,8 +186,8 @@ function groupCells() {
 			  $('#gridOuter [row="' + (row+1) + '"][col="' + col + '"]')[0]) {
 
 				answerStart = true;
-				//downAnswerLocked.push(currAnswerNum);
-				downAnswerLocked[currAnswerNum] = false;
+				//answerLocked.down.push(currAnswerNum);
+				answerLocked.down[currAnswerNum] = false;
 				answerRow = row;
 				do {
 					$('#gridOuter [row="' + answerRow + '"][col="' + col + '"]').attr('down', currAnswerNum);
@@ -172,8 +200,8 @@ function groupCells() {
 			  $('#gridOuter [row="' + row + '"][col="' + (col+1) + '"]')[0]) {
 
 				answerStart = true;
-				//acrossAnswerLocked.push(currAnswerNum);
-				acrossAnswerLocked[currAnswerNum] = false;
+				//answerLocked.across.push(currAnswerNum);
+				answerLocked.across[currAnswerNum] = false;
 				answerCol = col;
 				do {
 					$('#gridOuter [row="' + row + '"][col="' + answerCol + '"]').attr('across', currAnswerNum);
@@ -247,40 +275,34 @@ function spaceClick() {
 			//console.log("New space");
 			dir = ($(this).attr("across") ? "across" : "down");
 		} else {
-			//console.log("Chage direction");
-			dir = (currClueAnswer.dir == "across" ? "down" : "across");
+			//console.log("Change direction");
+			dir = (otherDir(currClueAnswer.dir));
 		}
-
 		//console.log("dir -" + dir);
-
-		$("#gridOuter .space").css("background-color", "white");
-		$(".clueHolder").css("background-color", "white");
-		//console.log("Selector -" + 'gridOuter [' + dir + '="' + $(this).attr(dir) + '"]' + "-");
-		$('#gridOuter [' + dir + '="' + $(this).attr(dir) + '"]').css("background-color", HILIGHT);
-		$('.clueHolder[dir="' + dir + '"][clueNum="' + $(this).attr(dir) + '"]').css("background-color", HILIGHT);
 
 		currClueAnswer.dir = dir;
 		currClueAnswer.num = $(this).attr(dir);
 		currSpace.row = $(this).attr("row");
 		currSpace.col = $(this).attr("col");
+		newSelection();
 	}
-	$("#enterWord").removeAttr("disabled");
-	$("#suggestWords").removeAttr("disabled");
 }
 
-function getAnswer(onlyCross, dir, num) { //pass nothing to get currently selected answer
+function getAnswer(onlyLockedCross, dir, num) { //pass nothing to get currently selected answer
 	//console.log("* getAnswer -" + onlyCross + "-" + dir + "-" + num + "-");
 	if(!dir) {
-		var dir = currClueAnswer.dir;
+		dir = currClueAnswer.dir;
 	}
 	if(!num) {
-		var num = currClueAnswer.num;
+		num = currClueAnswer.num;
 	}
-	var otherDir = (dir == "across" ? "down" : "across");
+	var crossDir = otherDir(dir);
+	var crossDirNum;
 	var answerText = "";
 	var answerCells = $('#gridOuter [' + dir + '="' + num + '"] p');
 	for(var i=0; i<answerCells.length; i++) {
-		answerText += ((!onlyCross || $(answerCells[i]).parent().attr(otherDir)) ? $(answerCells[i]).text() : " ");
+		crossDirNum = $(answerCells[i]).parent().attr(crossDir);
+		answerText += (!onlyLockedCross || (crossDirNum && answerLocked[crossDir][crossDirNum])) ? $(answerCells[i]).text() : " ";
 	}
 	//console.log("Returning " + answerText);
 	return answerText;
@@ -303,25 +325,26 @@ function setAnswer(newAnswer, dir, num) {
 	return true;
 }
 
-function fillAnswers(answers) {
-	var i;
-	if(answers.across) {
-		//for(i=0; i<acrossAnswerLocked.length; i++) {
-		for(i in acrossAnswerLocked) {
-			//if(answers.across[acrossAnswerLocked[i]]) {
-			if(answers.across[i]) {
-				//setAnswer(answers.across[acrossAnswerLocked[i]], "across", acrossAnswerLocked[i]);
-				setAnswer(answers.across[i], "across", i);
-			}
+function toggleCurrAnswerLock() {
+	//console.log("Toggling lock on " + currClueAnswer.dir + ", " + currClueAnswer.num);
+	answerLocked[currClueAnswer.dir][currClueAnswer.num] = !answerLocked[currClueAnswer.dir][currClueAnswer.num];
+	markLockedAnswers();
+	setLockUnlockBtnText();
+}
+
+function markLockedAnswers() {
+	$("#gridOuter .space").css("border-color", UNLOCKED);
+	foreachClueAnswer(function(dir, num) {
+		//console.log("Checking lock on " + dir + ", " + num);
+		if(answerLocked[dir][num]) {
+			//console.log("Locking " + dir + ", " + num);
+			$('#gridOuter .space[' + dir + '="' + num + '"]').css("border-color", LOCKED);
 		}
-	}
-	if(answers.down) {
-		for(i in downAnswerLocked) {
-			if(answers.down[i]) {
-				setAnswer(answers.down[i], "down", i);
-			}
-		}
-	}
+	});
+}
+
+function setLockUnlockBtnText() {
+	$("#lockUnlock").val(answerLocked[currClueAnswer.dir][currClueAnswer.num]?"Unlock":"Lock");
 }
 
 function editAnswer() {
@@ -435,53 +458,12 @@ function answerCB(saveData) {
 //================ Clue Stuff ================
 
 function clueClick() {
-	//hilight clue and answer
 	//console.log("* clueClick");
-	$("#gridOuter .space").css("background-color", "white");
-	$(".clueHolder").css("background-color", "white");
-	$(this).css("background-color", HILIGHT);
-	//console.log('space: #gridOuter [' + $(this).attr("dir") + '="' + $(this).attr("clueNum") + '"]')
-	$('#gridOuter [' + $(this).attr("dir") + '="' + $(this).attr("clueNum") + '"]').css("background-color", HILIGHT);
 	currClueAnswer.dir = $(this).attr("dir");
 	currClueAnswer.num = $(this).attr("clueNum");
-}
-
-function makeClues() {
-	//console.log("* makeClues");
-	var i;
-	//for(i=0; i<acrossAnswerLocked.length; i++) {
-	for(i in acrossAnswerLocked) {
-		//console.log("Appending " + acrossAnswerLocked[i] + " across");
-		//$("#acrossClues").append('<div><div class="clueHolder" dir="across" clueNum="' + acrossAnswerLocked[i] + '"><span class="clueNum">' + acrossAnswerLocked[i] + '</span><span class="clue" dir="across" clueNum="' + acrossAnswerLocked[i] + '"></span><input type="text" class="clueEdit" dir="across" clueNum="' + acrossAnswerLocked[i] + '"></div></div>');
-		$("#acrossClues").append('<div><div class="clueHolder" dir="across" clueNum="' + i + '"><span class="clueNum">' + i + '</span><span class="clue" dir="across" clueNum="' + i + '"></span><input type="text" class="clueEdit" dir="across" clueNum="' + i + '"></div></div>');
-	}
-	for(i in downAnswerLocked) {
-		$("#downClues").append('<div><div class="clueHolder" dir="down" clueNum="' + i + '"><span class="clueNum">' + i + '</span><span class="clue" dir="down" clueNum="' + i + '"></span><input type="text" class="clueEdit" dir="down" clueNum="' + i + '"></div></div>');
-	}
-	$(".clueEdit").hide();
-}
-
-function fillClues(clues) {
-	//console.log("* fillClues");
-	//console.log(clues);
-	var i;
-	if(clues.across) {
-		//for(i=0; i<acrossAnswerLocked.length; i++) {
-		for(i in acrossAnswerLocked) {
-			//if(clues.across[acrossAnswerLocked[i]]) {
-			if(clues.across[i]) {
-				//$('.clue[dir="across"][clueNum="' + acrossAnswerLocked[i] + '"]').text(clues.across[acrossAnswerLocked[i]]);
-				$('.clue[dir="across"][clueNum="' + i + '"]').text(clues.across[i]);
-			}
-		}
-	}
-	if(clues.down) {
-		for(i in downAnswerLocked) {
-			if(clues.down[i]) {
-				$('.clue[dir="down"][clueNum="' + i + '"]').text(clues.down[i]);
-			}
-		}
-	}
+	currSpace.row = 0;
+	currSpace.col = 0;
+	newSelection();
 }
 
 function editClue() {
@@ -518,6 +500,33 @@ function setClue(update) {
 }
 
 //================ Misc Stuff ================
+
+function foreachClueAnswer(callback, args) {
+	var num, d;
+	var dir;
+
+	for(d=0; d<2; d++) {
+		dir = BOTH_DIRS[d];
+		for(num in answerLocked[dir]) {
+			if(answerLocked[dir].hasOwnProperty(num)) {
+				callback(dir, num, args);
+			}
+		}
+	}
+}
+
+function newSelection() {
+	$("#gridOuter .space").css("background-color", "white");
+	$(".clueHolder").css("background-color", "white");
+	$('#gridOuter [' + currClueAnswer.dir + '="' + currClueAnswer.num + '"]').css("background-color", HILIGHT);
+	$('.clueHolder[dir="' + currClueAnswer.dir + '"][clueNum="' + currClueAnswer.num + '"]').css("background-color", HILIGHT);
+
+	setLockUnlockBtnText();
+
+	$("#enterWord").removeAttr("disabled");
+	$("#suggestWords").removeAttr("disabled");
+	$("#lockUnlock").removeAttr("disabled");
+}
 
 function saveItem(saveData, callback) {
 	saveData.crosswordId = crosswordId;
