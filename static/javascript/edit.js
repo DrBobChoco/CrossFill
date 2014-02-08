@@ -96,7 +96,7 @@ function loadCrossword() {
 				//fill answers
 				if(data.answer) {
 					foreachClueAnswer(function(dir, num, answers) {
-						if(answers[dir][num]) {
+						if(answers[dir] && answers[dir][num]) {
 							setAnswer(answers[dir][num], dir, num);
 						}
 					}, data.answer);
@@ -104,7 +104,7 @@ function loadCrossword() {
 				//lock answers
 				if(data.answerLocked) {
 					foreachClueAnswer(function(dir, num, locked) {
-						if(locked[dir][num]) answerLocked[dir][num] = true;
+						if(locked[dir] && locked[dir][num]) answerLocked[dir][num] = true;
 					}, data.answerLocked);
 				}
 				markLockedAnswers();
@@ -116,7 +116,7 @@ function loadCrossword() {
 				//fill clues
 				if(data.clue) {
 					foreachClueAnswer(function(dir, num, clues) {
-						if(clues[dir][num]) $('.clue[dir="' + dir + '"][clueNum="' + num + '"]').text(clues[dir][num]);
+						if(clues[dir] && clues[dir][num]) $('.clue[dir="' + dir + '"][clueNum="' + num + '"]').text(clues[dir][num]);
 					}, data.clue);
 				}
 			}
@@ -326,10 +326,16 @@ function setAnswer(newAnswer, dir, num) {
 }
 
 function toggleCurrAnswerLock() {
-	//console.log("Toggling lock on " + currClueAnswer.dir + ", " + currClueAnswer.num);
-	answerLocked[currClueAnswer.dir][currClueAnswer.num] = !answerLocked[currClueAnswer.dir][currClueAnswer.num];
-	markLockedAnswers();
-	setLockUnlockBtnText();
+	console.log("Toggling lock on " + currClueAnswer.dir + ", " + currClueAnswer.num);
+	saveItem({itemType:"answerLocked", direction:currClueAnswer.dir, number:currClueAnswer.num, itemData:!answerLocked[currClueAnswer.dir][currClueAnswer.num], statusType:"answer lock"}, lockCB);
+}
+
+function lockCB(saveData) {
+	if(!saveData.error) {
+		answerLocked[currClueAnswer.dir][currClueAnswer.num] = saveData.itemData;
+		markLockedAnswers();
+		setLockUnlockBtnText();
+	}
 }
 
 function markLockedAnswers() {
@@ -530,6 +536,7 @@ function newSelection() {
 
 function saveItem(saveData, callback) {
 	saveData.crosswordId = crosswordId;
+	//console.log(JSON.stringify(saveData));
 	$.ajax({
 		url: "/saveItem",
 		type: "POST",
@@ -537,7 +544,9 @@ function saveItem(saveData, callback) {
 		data: saveData,
 		success: function(data, stat, jqXHR) {
 			console.log("* saveItem success");
-			flashStatusMsg(saveData.itemType + " saved.");
+			if(!saveData.suppressStatus) {
+				flashStatusMsg((saveData.statusType ? saveData.statusType : saveData.itemType) + " saved.");
+			}
 			if(callback) {
 				saveData.error = false;
 				callback(saveData);
@@ -545,7 +554,9 @@ function saveItem(saveData, callback) {
 		},
 		error: function(jqXHR, stat, err) {
 			console.log("* saveItem error");
-			flashStatusMsg("Error: " + saveData.itemType + " was not saved.", true);
+			if(!saveData.suppressStatus) {
+				flashStatusMsg("Error: " + (saveData.statusType ? saveData.statusType : saveData.itemType) + " was not saved.", true);
+			}
 			if(callback) {
 				saveData.error = true;
 				callback(saveData);

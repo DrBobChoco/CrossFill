@@ -110,12 +110,12 @@ var router = bee.route({
 			dbClient.connect(DB_URL, function(err, db) {
 				var coll;
 				if(tokens.crosswordId != "0") {
-					console.log("Have crosswordId");
+					//console.log("Have crosswordId");
 					coll = db.collection("crosswords");
 					var id =  ObjectID.createFromHexString(tokens.crosswordId);
 					sendCrosswordInfo(coll, id, req, res);
 				} else {
-					console.log("No valid crosswordId");
+					//console.log("No valid crosswordId");
 					coll = db.collection("grids");
 					coll.distinct("_id", function(err, ids) {
 						if(ids.length) {
@@ -150,8 +150,8 @@ var router = bee.route({
 					if(err) {
 						router.error(req, res, err);
 					} else {
-						console.log("going to send...");
-						console.log('{"crosswordId":"' + crosswordId.toHexString() + '"}');
+						//console.log("going to send...");
+						//console.log('{"crosswordId":"' + crosswordId.toHexString() + '"}');
 						sendOK(res, '{"crosswordId":"' + crosswordId.toHexString() + '"}', "application/json");
 					}
 				});
@@ -176,7 +176,7 @@ var router = bee.route({
 					saveItem
 			], function(err) {
 					if(err) {
-						console.log("Sending error");
+						//console.log("Sending error");
 						console.log(err);
 						router.error(req, res, err);
 					} else {
@@ -265,8 +265,8 @@ function doLogin(post, callback) {
 				if(err || !user) {
 					callback(err?err:new Error(ERR_MSG.userNotFound));
 				} else {
-					console.log("User:");
-					console.log(user);
+					//console.log("User:");
+					//console.log(user);
 					var userId = user._id.toHexString();
 					bcrypt.compare(post.password, user.pwHash, function(err, success) {
 						if(err || !success) {
@@ -304,7 +304,7 @@ function getLoggedInUser(req, res, callback) {
 					console.log("Error");
 					callback(err?err:new Error(ERR_MSG.notLoggedIn));
 				} else {
-					console.log("Got a user " + user.name);
+					//console.log("Got a user " + user.name);
 					callback(null, user);
 				}
 			});
@@ -357,7 +357,7 @@ function sendCrosswordInfo(collection, id, request, response) {
 	//console.log("passed id -" + id);
 	collection.findOne({_id:id}, function(err, result) {
 		if(err) {
-			console.log("sGL findOne err -" + err);
+			console.log("sCI findOne err -" + err);
 			router.error(request, response, err);
 		}
 		if(result) {
@@ -369,6 +369,9 @@ function sendCrosswordInfo(collection, id, request, response) {
 			}
 			if(result.answer) {
 				body += ',"answer":' + JSON.stringify(result.answer);
+			}
+			if(result.answerLocked) {
+				body += ',"answerLocked":' + JSON.stringify(result.answerLocked);
 			}
 			if(result.clue) {
 				body += ',"clue":' + JSON.stringify(result.clue);
@@ -389,11 +392,11 @@ function sendCrosswordInfo(collection, id, request, response) {
 function createCrossword(user, post, callback) {
 	console.log("* createCrossword");
 	if(!post.title || !post.gridLayout) {
-		console.log("missing a value");
-		console.log(post);
+		//console.log("missing a value");
+		//console.log(post);
 		callback(new Error(ERR_MSG.missingCrosswordData));
 	} else {
-		console.log("try insert");
+		//console.log("try insert");
 		dbClient.connect(DB_URL, function(err, db) {
 			var crosswords = db.collection("crosswords");
 			crosswords.insert({userId:user._id.toHexString(), title:post.title, gridLayout:post.gridLayout}, function(err, result) {
@@ -401,7 +404,7 @@ function createCrossword(user, post, callback) {
 					console.log("insert error");
 					callback(err);
 				} else {
-					console.log("insert success");
+					//console.log("insert success");
 					callback(null, result[0]._id);
 				}
 			});
@@ -416,9 +419,9 @@ function createCrossword(user, post, callback) {
  */
 function saveItem(user, post, callback) {
 	console.log("* saveItem");
-	console.log(user);
-	console.log(post);
-	var types = ['title', 'answer', 'clue'];
+	//console.log(user);
+	//console.log(post);
+	var types = ['title', 'answer', 'answerLocked', 'clue'];
 	if(!post.crosswordId || !post.itemType || types.indexOf(post.itemType) == -1 || !post.itemData ||
 			(post.itemType != "title" && (!post.direction || !post.number))) {
 		callback(new Error(ERR_MSG.missingCrosswordData));
@@ -428,12 +431,15 @@ function saveItem(user, post, callback) {
 			setData = {title:post.itemData};
 		} else {
 			setData = {};
+			if(post.itemType == "answerLocked") {
+				post.itemData = post.itemData.toLowerCase() == "false" ? false : true;
+			}
 			setData[post.itemType + "." + post.direction + "." + post.number] = post.itemData;
 		}
 		dbClient.connect(DB_URL, function(err, db) {
 			var crosswords = db.collection("crosswords");
-			console.log("About to update...");
-			console.log(setData);
+			//console.log("About to update...");
+			//console.log(setData);
 			crosswords.update({_id:ObjectID.createFromHexString(post.crosswordId),userId:user._id.toHexString()},
 					{$set:setData}, function(err) {
 				callback(err);
