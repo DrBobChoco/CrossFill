@@ -6,6 +6,12 @@ function otherDir(dir) {
 	return  dir == 'across' ? 'down' : 'across';
 };
 
+/**
+ * Todo
+ * Whirly gif for suggest word dialog
+ * disable / enable buttons as needed
+ */
+
 var crosswordId = 0;
 var gridLayout = [];
 var currSpace = {
@@ -388,6 +394,7 @@ function XXcheckAnswerEditKey(ev) {
 }
 
 function getSuggestedWords() {
+	showDialog("#suggestedDlg");
 	$.ajax({
 		url: "/getSuggestedWords/" + getAnswer(true).replace(/ /g, "%20"),
 		type: "POST",
@@ -411,12 +418,15 @@ function getSuggestedWords() {
 				$("#suggestedNoWords").show();
 				$("#suggestedSelect").hide();
 			}
-			showDialog("#suggestedDlg");
+			$("#suggestedDlg .wait").hide();
+			$("#suggestedDlg .doneWait").show();
 			$("#suggestedSelect").focus();
 		},
 		error: function(jqXHR, stat, err) {
 			console.log("getSuggestedWords: " + stat);
 			console.log(err);
+			hideDialog("#suggestedDlg");
+			flashStatusMsg("Error getting suggestions", true);
 		}
 	});
 }
@@ -567,6 +577,8 @@ function saveItem(saveData, callback) {
 
 function showDialog(selector) {
 	$(selector).show();
+	$(selector + " .wait").show();
+	$(selector + " .doneWait").hide();
 	$("#dlgOverlay").show();
 }
 
