@@ -9,10 +9,12 @@ var DB_URL = "mongodb://localhost:27017/crossFill";
 var qs = require("querystring");
 
 var ERR_MSG = {
+	crosswordNotFound: "Crossword not found",
 	entityTooLarge: "Request entity too large",
 	loginFailed: "Login failed",
 	missingLoginData: "Missing login data",
 	missingCrosswordData: "Missing crossword data",
+	noGridIds: "No grid ids found",
 	notLoggedIn: "User not logged in",
 	userNotFound: "User not found"
 };
@@ -107,25 +109,46 @@ var router = bee.route({
 		"POST": function(req, res, tokens, values) {
 			console.log("* getCrosswordInfo");
 			//console.log(tokens);
-			dbClient.connect(DB_URL, function(err, db) {
-				var coll;
-				if(tokens.crosswordId != "0") {
-					//console.log("Have crosswordId");
-					coll = db.collection("crosswords");
-					var id =  ObjectID.createFromHexString(tokens.crosswordId);
-					sendCrosswordInfo(coll, id, req, res);
-				} else {
-					//console.log("No valid crosswordId");
-					coll = db.collection("grids");
-					coll.distinct("_id", function(err, ids) {
-						if(ids.length) {
-							sendCrosswordInfo(coll, ids[Math.floor(Math.random()*ids.length)], req, res);
+			// Should realy double check logged in user and pass userId to sendCrosswordInfo
+			async.waterfall([
+				function(callback) {
+					callback(null, req, res);
+				},
+				getLoggedInUser,
+				function(user, callback) {
+					dbClient.connect(DB_URL, function(err, db) {
+						if(err) {
+							callback(err);
 						} else {
-							router.missing(req, res);
+							if(tokens.crosswordId != "0") {
+								//console.log("Have crosswordId");
+								callback(null, db.collection("crosswords"), ObjectID.createFromHexString(tokens.crosswordId), user._id.toHexString(), true);
+							} else {
+								//console.log("No valid crosswordId");
+								var coll = db.collection("grids");
+								coll.distinct("_id", function(err, ids) {
+									if(ids.length) {
+										callback(err, coll, ids[Math.floor(Math.random()*ids.length)], null, true);
+									} else {
+										callback(new Error(ERR_MSG.noGridIds));
+									}
+								});
+							}
 						}
 					});
-				}
-			});
+				},
+				getCrosswordInfo
+			], function(err, crosswordInfo) {
+					if(err) {
+						if(err.message == ERR_MSG.crosswordNotFound) {
+							router.missing(req, res);
+						} else {
+							router.error(req, res, err);
+						}
+					} else {
+						sendOK(res, crosswordInfo, "application/json");
+					}
+				});
 		}
 	},
 	"/createCrossword": {
@@ -217,6 +240,34 @@ var router = bee.route({
 				});
 			});
 		}
+	},
+	"/export/`crosswordId`": function(req, res, tokens, values) {
+		// check logged in and owns crossword; convert / format; header (prob application/octet-stream); dump
+		console.log("* getCrosswordInfo");
+		//console.log(tokens);
+		async.waterfall([
+			function(callback) {
+				callback(null, req, res);
+			},
+			getLoggedInUser,
+			function(user, callback) {
+				dbClient.connect(DB_URL, function(err, db) {
+					callback(err, db.collection("crosswords"), ObjectID.createFromHexString(tokens.crosswordId), user._id.toHexString(), false);
+				});
+			},
+			getCrosswordInfo,
+			formatCrosswordExport
+		], function(err, crosswordExport, crosswordTitle) {
+				if(err) {
+					if(err.message == ERR_MSG.crosswordNotFound) {
+						router.missing(req, res);
+					} else {
+						router.error(req, res, err);
+					}
+				} else {
+					sendOK(res, crosswordExport, "application/x-unknown", {"Content-Disposition": 'attachment; filename="' + crosswordTitle + '.txt"'});
+				}
+			});
 	},
 
 	// Other
@@ -353,35 +404,78 @@ function sendUserCrosswordList(user, response, callback) {
 	});
 }
 
-function sendCrosswordInfo(collection, id, request, response) {
+/**
+ * Async waterfall function
+ * In: collection object, crossword/grid id, user id string
+ * Out: crossword info object/JSON
+ */
+function getCrosswordInfo(collection, id, userId, clientFormat, callback) {
 	//console.log("passed id -" + id);
-	collection.findOne({_id:id}, function(err, result) {
+	criteria = {_id:id};
+	if(userId) {
+		criteria.userId = userId;
+	}
+	collection.findOne(criteria, function(err, result) {
 		if(err) {
 			console.log("sCI findOne err -" + err);
-			router.error(request, response, err);
+			callback(err);
 		}
 		if(result) {
 			//console.log("result -" + JSON.stringify(result));
 			//conditionally add on other info (title, answers, clues)
-			var body = '{"gridLayout":' + result.gridLayout;
-			if(result.title) {
-				body += ',"title":"' + result.title + '"';
+			if(clientFormat) {
+				var resultJSON = '{"gridLayout":' + result.gridLayout;
+				if(result.title) {
+					resultJSON += ',"title":"' + result.title + '"';
+				}
+				if(result.answer) {
+					resultJSON += ',"answer":' + JSON.stringify(result.answer);
+				}
+				if(result.answerLocked) {
+					resultJSON += ',"answerLocked":' + JSON.stringify(result.answerLocked);
+				}
+				if(result.clue) {
+					resultJSON += ',"clue":' + JSON.stringify(result.clue);
+				}
+				resultJSON += '}';
+				result = resultJSON;
 			}
-			if(result.answer) {
-				body += ',"answer":' + JSON.stringify(result.answer);
-			}
-			if(result.answerLocked) {
-				body += ',"answerLocked":' + JSON.stringify(result.answerLocked);
-			}
-			if(result.clue) {
-				body += ',"clue":' + JSON.stringify(result.clue);
-			}
-			body += '}';
-			sendOK(response, body, "application/json");
+			callback(null, result);
 		} else {
-			router.missing(request, response);
+			callback(new Error(ERR_MSG.crosswordNotFound));
 		}
 	});
+}
+
+/**
+ * Async waterfall function
+ * In: crossword info object, user object
+ * Out: crossword info in Across Lite text format, crossword title
+ */
+function formatCrosswordExport(crosswordInfo, user, callback) {
+	var crosswordExport = "<ACROSS PUZZLE>\n";
+	var gridLayout = JSON.parse(crosswordInfo.gridLayout);
+	var date = new Date();
+
+	crosswordExport += "<TITLE>\n" + crosswordInfo.title + "\n";
+	crosswordExport += "<AUTHOR>\n" + user.name + "\n";
+	crosswordExport += "<COPYRIGHT>\n" + date.getFullYear() + " " + user.name + "\n";
+	crosswordExport += "<SIZE>\n" + gridLayout[0].length + "x" + gridLayout.length + "\n"; //cols x rows
+	crosswordExport += "<GRID>\n" + getExportGrid(crosswordInfo);
+	crosswordExport += "<ACROSS>\n";
+	for(var i in crosswordInfo.clue.across) {
+		crosswordExport += crosswordInfo.clue.across[i] + "\n";
+	}
+	crosswordExport += "<DOWN>\n";
+	for(i in crosswordInfo.clue.down) {
+		crosswordExport += crosswordInfo.clue.down[i] + "\n";
+	}
+	crosswordExport += "<NOTEPAD>\nExported from CrossFill.\n(c) 2014 Andrew Wilson.";
+
+	callback(null, crosswordExport, crosswordInfo.title);
+}
+
+function getExportGrid(crosswordInfo) {
 }
 
 /**
@@ -448,11 +542,17 @@ function saveItem(user, post, callback) {
 	}
 }
 
-function sendOK(response, body, type) {
-	response.writeHead(200, {
+function sendOK(response, body, type, extraHeaders) {
+	var headers = {
 		"Content-length": body.length,
 		"Content-type": type
-	});
+	};
+	if(extraHeaders) {
+		for(var xh in extraHeaders) {
+			headers[xh] = extraHeaders[xh];
+		}
+	}
+	response.writeHead(200, headers);
 	response.end(body);
 }
 
