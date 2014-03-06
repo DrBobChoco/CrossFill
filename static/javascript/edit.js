@@ -103,6 +103,7 @@ function loadCrossword() {
 				if(data.answer) {
 					foreachClueAnswer(function(dir, num, answers) {
 						if(answers[dir] && answers[dir][num]) {
+						// *** need to add a populateGrid function (or do in place) to deal with new [row][col] = char format
 							setAnswer(answers[dir][num], dir, num);
 						}
 					}, data.answer);
@@ -461,6 +462,7 @@ function saveAnswer(ev) {
 	}
 
 	console.log("About to save answer: " + answer);
+	// *** Need to change to row[], col[], saveData format ***
 	saveItem({itemType:"answer", direction:currClueAnswer.dir, number:currClueAnswer.num, itemData:answer.toUpperCase(), dialog:ev.data}, answerCB);
 }
 

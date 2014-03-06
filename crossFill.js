@@ -454,13 +454,13 @@ function getCrosswordInfo(collection, id, userId, clientFormat, callback) {
  */
 function formatCrosswordExport(crosswordInfo, user, callback) {
 	var crosswordExport = "<ACROSS PUZZLE>\n";
-	var gridLayout = JSON.parse(crosswordInfo.gridLayout);
+	var crosswordInfo.gridLayout = JSON.parse(crosswordInfo.gridLayout);
 	var date = new Date();
 
 	crosswordExport += "<TITLE>\n" + crosswordInfo.title + "\n";
 	crosswordExport += "<AUTHOR>\n" + user.name + "\n";
 	crosswordExport += "<COPYRIGHT>\n" + date.getFullYear() + " " + user.name + "\n";
-	crosswordExport += "<SIZE>\n" + gridLayout[0].length + "x" + gridLayout.length + "\n"; //cols x rows
+	crosswordExport += "<SIZE>\n" + crosswordInfo.gridLayout[0].length + "x" + crosswordInfo.gridLayout.length + "\n"; //cols x rows
 	crosswordExport += "<GRID>\n" + getExportGrid(crosswordInfo);
 	crosswordExport += "<ACROSS>\n";
 	for(var i in crosswordInfo.clue.across) {
@@ -476,6 +476,13 @@ function formatCrosswordExport(crosswordInfo, user, callback) {
 }
 
 function getExportGrid(crosswordInfo) {
+	var row, col;
+	var grid;
+	for(row=0; row < crossWordInfo.gridLayout.length; row++) {
+		for(col=0; col < crosswordInfo.gridLayout[0].length; col++) {
+			grid[row][col] = { 
+		}
+	}
 }
 
 /**
@@ -492,8 +499,15 @@ function createCrossword(user, post, callback) {
 	} else {
 		//console.log("try insert");
 		dbClient.connect(DB_URL, function(err, db) {
+			var gridData = JSON.parse(post.gridLayout);
+			for(var row=0; row<gridData.length; row++) {
+				for(var col=0; col<gridData[0].length; col++) {
+					gridData[row][col] = gridData[row][col] ? "." : " ";
+				}
+			}
+
 			var crosswords = db.collection("crosswords");
-			crosswords.insert({userId:user._id.toHexString(), title:post.title, gridLayout:post.gridLayout}, function(err, result) {
+			crosswords.insert({userId:user._id.toHexString(), title:post.title, gridLayout:post.gridLayout, gridData:gridData}, function(err, result) {
 				if(err) {
 					console.log("insert error");
 					callback(err);
@@ -520,11 +534,16 @@ function saveItem(user, post, callback) {
 			(post.itemType != "title" && (!post.direction || !post.number))) {
 		callback(new Error(ERR_MSG.missingCrosswordData));
 	} else {
-		var setData;
+		var setData = {};
 		if(post.itemType == "title") {
 			setData = {title:post.itemData};
+		} else if(post.itemType == "clue") {
+			//var row = JSON.parse(post.row);
+			//var col = JSON parse(post.col);
+			for(var i=0; i<post.itemData.length; i++) {
+				setData["gridData." + post.row[i] + "." + post.col[i]] = post.itemData.charAt(i);
+			}
 		} else {
-			setData = {};
 			if(post.itemType == "answerLocked") {
 				post.itemData = post.itemData.toLowerCase() == "false" ? false : true;
 			}
