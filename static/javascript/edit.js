@@ -8,12 +8,11 @@ function otherDir(dir) {
 
 /**
  * Todo
- * Whirly gif for suggest word dialog
  * disable / enable buttons as needed
  */
 
 var crosswordId = 0;
-var gridLayout = [];
+var gridData = [];
 var currSpace = {
 	row: 0,
 	col: 0
@@ -80,8 +79,8 @@ function getURLId() {
 }
 
 function loadCrossword() {
-	if(gridLayout.length) {
-		gridLayout = [];
+	if(gridData.length) {
+		gridData = [];
 		$("#gridOuter").empty();
 		//empty clue area
 	}
@@ -92,21 +91,12 @@ function loadCrossword() {
 		type: "POST",
 		dataType: "json",
 		success: function(data, stat, jqXHR) {
-			//console.log(JSON.stringify(data));
-			gridLayout = data.gridLayout;
+			console.log(JSON.stringify(data));
+			gridData = data.gridData; //includes answer character data
 			makeGrid();
 			if(crosswordId != "0") {
 				if(data.title) {
 					$("#crosswordTitle").text(data.title);
-				}
-				//fill answers
-				if(data.answer) {
-					foreachClueAnswer(function(dir, num, answers) {
-						if(answers[dir] && answers[dir][num]) {
-						// *** need to add a populateGrid function (or do in place) to deal with new [row][col] = char format
-							setAnswer(answers[dir][num], dir, num);
-						}
-					}, data.answer);
 				}
 				//lock answers
 				if(data.answerLocked) {
@@ -142,7 +132,7 @@ function createCrossword() {
 		dataType: "json",
 		data: {
 			title: $("#crosswordTitle").text(),
-			gridLayout: JSON.stringify(gridLayout)
+			gridData: JSON.stringify(gridData)
 		},
 		success: function(data, stat, jqXHR) {
 			console.log("create success");
@@ -163,15 +153,15 @@ function makeGrid() {
 	var content;
 	for(row=0; row<15; row++) {
 		for(col=0; col<15; col++) {
-			//console.log("gridLayout[" + row + "][" + col + "] -" + gridLayout[row][col] + "-");
-			if(gridLayout[row][col]) {
+			//console.log("gridData[" + row + "][" + col + "] -" + gridData[row][col] + "-");
+			if(gridData[row][col] == ".") {
 				cellClass = "block";
 				rowCol = '';
 				content = '';
 			} else {
 				cellClass = "space";
-				rowCol = 'row="' + (row+1) + '" col="' + (col+1) + '" ';
-				content = '<p> </p>';
+				rowCol = 'row="' + (row) + '" col="' + (col) + '" ';
+				content = '<p>' + gridData[row][col] + '</p>';
 			}
 			if(col == 0) {
 				cellClass += " rowStart";
@@ -184,12 +174,12 @@ function makeGrid() {
 
 function groupCells() {
 	var currAnswerNum = 1;
-	for(row=1; row<=15; row++) {
-		for(col=1; col<=15; col++) {
+	for(row=0; row<15; row++) {
+		for(col=0; col<15; col++) {
 			answerStart = false;
 
 			if($('#gridOuter [row="' + row + '"][col="' + col + '"]')[0] &&
-			  (row == 1 || !$('#gridOuter [row="' + (row-1) + '"][col="' + col + '"]')[0]) &&
+			  (row == 0 || !$('#gridOuter [row="' + (row-1) + '"][col="' + col + '"]')[0]) &&
 			  $('#gridOuter [row="' + (row+1) + '"][col="' + col + '"]')[0]) {
 
 				answerStart = true;
@@ -203,7 +193,7 @@ function groupCells() {
 			}
 
 			if($('#gridOuter [row="' + row + '"][col="' + col + '"]')[0] &&
-			  (col == 1 || !$('#gridOuter [row="' + row + '"][col="' + (col-1) + '"]')[0]) &&
+			  (col == 0 || !$('#gridOuter [row="' + row + '"][col="' + (col-1) + '"]')[0]) &&
 			  $('#gridOuter [row="' + row + '"][col="' + (col+1) + '"]')[0]) {
 
 				answerStart = true;

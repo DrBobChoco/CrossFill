@@ -424,7 +424,7 @@ function getCrosswordInfo(collection, id, userId, clientFormat, callback) {
 			//console.log("result -" + JSON.stringify(result));
 			//conditionally add on other info (title, answers, clues)
 			if(clientFormat) {
-				var resultJSON = '{"gridLayout":' + result.gridLayout;
+				var resultJSON = '{"gridData":' + (typeof result.gridData == "string" ? result.gridData : JSON.stringify(result.gridData));
 				if(result.title) {
 					resultJSON += ',"title":"' + result.title + '"';
 				}
@@ -439,6 +439,7 @@ function getCrosswordInfo(collection, id, userId, clientFormat, callback) {
 				}
 				resultJSON += '}';
 				result = resultJSON;
+				//console.log("gCI clientFormat:\n" + result);
 			}
 			callback(null, result);
 		} else {
@@ -454,16 +455,22 @@ function getCrosswordInfo(collection, id, userId, clientFormat, callback) {
  */
 function formatCrosswordExport(crosswordInfo, user, callback) {
 	var crosswordExport = "<ACROSS PUZZLE>\n";
-	var crosswordInfo.gridLayout = JSON.parse(crosswordInfo.gridLayout);
 	var date = new Date();
+	var i, row, col;
 
 	crosswordExport += "<TITLE>\n" + crosswordInfo.title + "\n";
 	crosswordExport += "<AUTHOR>\n" + user.name + "\n";
 	crosswordExport += "<COPYRIGHT>\n" + date.getFullYear() + " " + user.name + "\n";
-	crosswordExport += "<SIZE>\n" + crosswordInfo.gridLayout[0].length + "x" + crosswordInfo.gridLayout.length + "\n"; //cols x rows
-	crosswordExport += "<GRID>\n" + getExportGrid(crosswordInfo);
+	crosswordExport += "<SIZE>\n" + crosswordInfo.gridData[0].length + "x" + crosswordInfo.gridData.length + "\n"; //cols x rows
+	crosswordExport += "<GRID>\n";
+	for(row=0; row < crossWordInfo.gridData.length; row++) {
+		for(col=0; col < crosswordInfo.gridData[0].length; col++) {
+			crosswordExport += crosswordInfo.gridData[row][col]; 
+		}
+		crosswordExport += "\n";
+	}
 	crosswordExport += "<ACROSS>\n";
-	for(var i in crosswordInfo.clue.across) {
+	for(i in crosswordInfo.clue.across) {
 		crosswordExport += crosswordInfo.clue.across[i] + "\n";
 	}
 	crosswordExport += "<DOWN>\n";
@@ -475,16 +482,6 @@ function formatCrosswordExport(crosswordInfo, user, callback) {
 	callback(null, crosswordExport, crosswordInfo.title);
 }
 
-function getExportGrid(crosswordInfo) {
-	var row, col;
-	var grid;
-	for(row=0; row < crossWordInfo.gridLayout.length; row++) {
-		for(col=0; col < crosswordInfo.gridLayout[0].length; col++) {
-			grid[row][col] = { 
-		}
-	}
-}
-
 /**
  * Async waterfall function
  * In: user, post data
@@ -492,22 +489,17 @@ function getExportGrid(crosswordInfo) {
  */
 function createCrossword(user, post, callback) {
 	console.log("* createCrossword");
-	if(!post.title || !post.gridLayout) {
+	if(!post.title || !post.gridData) {
 		//console.log("missing a value");
 		//console.log(post);
 		callback(new Error(ERR_MSG.missingCrosswordData));
 	} else {
 		//console.log("try insert");
 		dbClient.connect(DB_URL, function(err, db) {
-			var gridData = JSON.parse(post.gridLayout);
-			for(var row=0; row<gridData.length; row++) {
-				for(var col=0; col<gridData[0].length; col++) {
-					gridData[row][col] = gridData[row][col] ? "." : " ";
-				}
-			}
+			var gridData = JSON.parse(post.gridData);
 
 			var crosswords = db.collection("crosswords");
-			crosswords.insert({userId:user._id.toHexString(), title:post.title, gridLayout:post.gridLayout, gridData:gridData}, function(err, result) {
+			crosswords.insert({userId:user._id.toHexString(), title:post.title, gridData:gridData}, function(err, result) {
 				if(err) {
 					console.log("insert error");
 					callback(err);
