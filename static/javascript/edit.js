@@ -44,6 +44,7 @@ function initiallise() {
 		$("#suggestWords").on("click", getSuggestedWords);
 		//$("#fillGrid").on("click", );
 		$("#lockUnlock").on("click", toggleCurrAnswerLock);
+		$("#export").on("click", function() {window.location.assign("/export/" + crosswordId)});
 		// Answers
 		$("#answerEditHolder").on("keydown", ".answerEdit", "#answerDlg", checkAnswerKey);
 		$("#answerEditHolder").on("keyup", ".answerEdit", function() { $(this).next().focus(); });
@@ -91,7 +92,7 @@ function loadCrossword() {
 		type: "POST",
 		dataType: "json",
 		success: function(data, stat, jqXHR) {
-			console.log(JSON.stringify(data));
+			//console.log(JSON.stringify(data));
 			gridData = data.gridData; //includes answer character data
 			makeGrid();
 			if(crosswordId != "0") {
@@ -135,7 +136,7 @@ function createCrossword() {
 			gridData: JSON.stringify(gridData)
 		},
 		success: function(data, stat, jqXHR) {
-			console.log("create success");
+			//console.log("create success");
 			window.location.replace("/edit/" + data.crosswordId);
 		},
 		error: function(jqXHR, stat, err) {
@@ -224,16 +225,16 @@ function editTitle() {
 function checkTitleEditKey(ev) {
 	//console.log(ev);
 	if(ev.keyCode == 13) { //enter
-		console.log("Enter");
+		//console.log("Enter");
 		if(crosswordId != "0") {
-			console.log('!= "0"');
+			//console.log('!= "0"');
 			saveItem({itemType:"title", itemData:$("#titleEdit").val()}, titleCB);
 		} else { // new crossword, don't save till create
-			console.log('== "0"');
+			//console.log('== "0"');
 			setTitle(true);
 		}
 	} else if(ev.keyCode == 27) { //esc
-		console.log("Esc");
+		//console.log("Esc");
 		setTitle(false);
 	}
 }
@@ -242,8 +243,8 @@ function checkTitleEditKey(ev) {
  * Save title callback
  */
 function titleCB(saveData) {
-	console.log("titleCb");
-	console.log(saveData);
+	//console.log("titleCb");
+	//console.log(saveData);
 	if(!saveData.error) {
 		setTitle(true);
 	}
@@ -296,7 +297,7 @@ function getAnswer(onlyLockedCross, dir, num) { //pass nothing to get currently 
 	var crossDir = otherDir(dir);
 	var crossDirNum;
 	var answerText = "";
-	var answerCells = $('#gridOuter [' + dir + '="' + num + '"] p');
+	var answerCells = $('#gridOuter .space[' + dir + '="' + num + '"] p');
 	for(var i=0; i<answerCells.length; i++) {
 		crossDirNum = $(answerCells[i]).parent().attr(crossDir);
 		answerText += (!onlyLockedCross || (crossDirNum && answerLocked[crossDir][crossDirNum])) ? $(answerCells[i]).text() : " ";
@@ -323,7 +324,7 @@ function setAnswer(newAnswer, dir, num) {
 }
 
 function toggleCurrAnswerLock() {
-	console.log("Toggling lock on " + currClueAnswer.dir + ", " + currClueAnswer.num);
+	//console.log("Toggling lock on " + currClueAnswer.dir + ", " + currClueAnswer.num);
 	saveItem({itemType:"answerLocked", direction:currClueAnswer.dir, number:currClueAnswer.num, itemData:!answerLocked[currClueAnswer.dir][currClueAnswer.num], statusType:"answer lock"}, lockCB);
 }
 
@@ -362,16 +363,16 @@ function editAnswer() {
 }
 
 function checkAnswerKey(ev) {
-	console.log(ev);
+	//console.log(ev);
 	if(ev.keyCode == 13) { //enter
-		console.log("Enter");
+		//console.log("Enter");
 		saveAnswer(ev);
 	} else if(ev.keyCode == 27) { //esc
-		console.log("Esc");
+		//console.log("Esc");
 		hideDialog(ev.data);
 	}
 }
-
+/*
 function XXcheckAnswerEditKey(ev) {
 	console.log(ev);
 	if(ev.keyCode == 13) { //enter
@@ -383,7 +384,7 @@ function XXcheckAnswerEditKey(ev) {
 		hideDialog("#answerDlg");
 	}
 }
-
+*/
 function getSuggestedWords() {
 	showDialog("#suggestedDlg");
 	$.ajax({
@@ -391,8 +392,8 @@ function getSuggestedWords() {
 		type: "POST",
 		dataType: "json",
 		success: function(data, stat, jqXHR) {
-			console.log("Suggested words:");
-			console.log(data);
+			//console.log("Suggested words:");
+			//console.log(data);
 			suggestedLetters = [];
 			var words = data.words;
 			if(words.length) {
@@ -421,7 +422,7 @@ function getSuggestedWords() {
 		}
 	});
 }
-
+/*
 function XXcheckSuggestedKey(ev) {
 	console.log(ev);
 	if(ev.keyCode == 13) { //enter
@@ -433,11 +434,12 @@ function XXcheckSuggestedKey(ev) {
 		hideDialog("#suggestedDlg");
 	}
 }
-
+*/
 function saveAnswer(ev) {
 	//console.log("* saveAnswer");
 	var answer = "";
 	var letters, i;
+
 	if(ev.data == "#answerDlg") {
 		letters = $("#answerEditHolder .answerEdit");
 		for(i=0; i<letters.length; i++) {
@@ -451,9 +453,16 @@ function saveAnswer(ev) {
 		}
 	}
 
-	console.log("About to save answer: " + answer);
-	// *** Need to change to row[], col[], saveData format ***
-	saveItem({itemType:"answer", direction:currClueAnswer.dir, number:currClueAnswer.num, itemData:answer.toUpperCase(), dialog:ev.data}, answerCB);
+	var row = [];
+	var col = [];
+	var cells = $('#gridOuter .space[' + currClueAnswer.dir + '="' + currClueAnswer.num + '"]');
+	for(i=0; i<cells.length; i++) {
+		row[i] = $(cells[i]).attr("row");
+		col[i] = $(cells[i]).attr("col");
+	}
+
+	console.log("About to save answer: " + answer + "\nrow:" + JSON.stringify(row) + "\ncol" + JSON.stringify(col));
+	saveItem({itemType:"answer", row:row, col:col, itemData:answer.toUpperCase(), dialog:ev.data}, answerCB);
 }
 
 function answerCB(saveData) {
@@ -486,14 +495,14 @@ function checkClueEditKey(ev) {
 		//console.log("Enter");
 		saveItem({itemType:"clue", direction:currClueAnswer.dir, number:currClueAnswer.num, itemData:$(this).val()}, clueCB);
 	} else if(ev.keyCode == 27) { //esc
-		console.log("Esc");
+		//console.log("Esc");
 		setClue(false);
 	}
 }
 
 function clueCB(saveData) {
-	console.log("clueCb");
-	console.log(saveData);
+	//console.log("clueCb");
+	//console.log(saveData);
 	if(!saveData.error) {
 		setClue(true);
 	}
@@ -584,5 +593,5 @@ function flashStatusMsg(msg, error) {
 	if(error) {
 		color = 'red';
 	}
-	$("#statusMsg").text(msg).css('color', color).show().delay(2000).fadeOut(1000);
+	$("#statusMsg").stop(true).text(msg).css('color', color).show().delay(2000).fadeOut(1000);
 }

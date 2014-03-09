@@ -242,20 +242,24 @@ var router = bee.route({
 		}
 	},
 	"/export/`crosswordId`": function(req, res, tokens, values) {
-		// check logged in and owns crossword; convert / format; header (prob application/octet-stream); dump
 		console.log("* getCrosswordInfo");
 		//console.log(tokens);
+		var user;
 		async.waterfall([
 			function(callback) {
 				callback(null, req, res);
 			},
 			getLoggedInUser,
-			function(user, callback) {
+			function(currUser, callback) {
+				user = currUser;
 				dbClient.connect(DB_URL, function(err, db) {
 					callback(err, db.collection("crosswords"), ObjectID.createFromHexString(tokens.crosswordId), user._id.toHexString(), false);
 				});
 			},
 			getCrosswordInfo,
+			function(crosswordInfo, callback) {
+				callback(null, crosswordInfo, user);
+			},
 			formatCrosswordExport
 		], function(err, crosswordExport, crosswordTitle) {
 				if(err) {
@@ -463,7 +467,7 @@ function formatCrosswordExport(crosswordInfo, user, callback) {
 	crosswordExport += "<COPYRIGHT>\n" + date.getFullYear() + " " + user.name + "\n";
 	crosswordExport += "<SIZE>\n" + crosswordInfo.gridData[0].length + "x" + crosswordInfo.gridData.length + "\n"; //cols x rows
 	crosswordExport += "<GRID>\n";
-	for(row=0; row < crossWordInfo.gridData.length; row++) {
+	for(row=0; row < crosswordInfo.gridData.length; row++) {
 		for(col=0; col < crosswordInfo.gridData[0].length; col++) {
 			crosswordExport += crosswordInfo.gridData[row][col]; 
 		}
@@ -520,20 +524,22 @@ function createCrossword(user, post, callback) {
 function saveItem(user, post, callback) {
 	console.log("* saveItem");
 	//console.log(user);
-	//console.log(post);
+	console.log(post);
 	var types = ['title', 'answer', 'answerLocked', 'clue'];
 	if(!post.crosswordId || !post.itemType || types.indexOf(post.itemType) == -1 || !post.itemData ||
-			(post.itemType != "title" && (!post.direction || !post.number))) {
+			((post.itemType == "clue" || post.itemType == "answerLocked") && (!post.direction || !post.number)) ||
+			(post.itemType == "answer" && (!post['row[]'] || !post['col[]']))) {
 		callback(new Error(ERR_MSG.missingCrosswordData));
 	} else {
 		var setData = {};
 		if(post.itemType == "title") {
 			setData = {title:post.itemData};
-		} else if(post.itemType == "clue") {
-			//var row = JSON.parse(post.row);
-			//var col = JSON parse(post.col);
+		} else if(post.itemType == "answer") {
+			console.log("Answer");
+			var row = post['row[]'];
+			var col = post['col[]'];
 			for(var i=0; i<post.itemData.length; i++) {
-				setData["gridData." + post.row[i] + "." + post.col[i]] = post.itemData.charAt(i);
+				setData["gridData." + row[i] + "." + col[i]] = post.itemData.charAt(i);
 			}
 		} else {
 			if(post.itemType == "answerLocked") {
@@ -543,8 +549,8 @@ function saveItem(user, post, callback) {
 		}
 		dbClient.connect(DB_URL, function(err, db) {
 			var crosswords = db.collection("crosswords");
-			//console.log("About to update...");
-			//console.log(setData);
+			console.log("About to update...");
+			console.log(setData);
 			crosswords.update({_id:ObjectID.createFromHexString(post.crosswordId),userId:user._id.toHexString()},
 					{$set:setData}, function(err) {
 				callback(err);
