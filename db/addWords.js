@@ -1,7 +1,7 @@
 // Munge words + add to db
 
 var dbClient = require("mongodb").MongoClient;
-var DB_URL = "mongodb://localhost:27017/crossFill";
+var DB_URL = "mongodb://localhost:27017/crossFiller";
 
 var Iconv = require("iconv").Iconv;
 var fs = require("fs");

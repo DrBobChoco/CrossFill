@@ -1,4 +1,4 @@
-use crossFill
+use crossFiller
 
 db.users.ensureIndex({email: 1}, {unique: true});
 db.crosswords.ensureIndex({userId: 1});

@@ -5,7 +5,7 @@ var bcrypt = require("bcrypt");
 var Cookies = require("cookies");
 var dbClient = require("mongodb").MongoClient;
 var ObjectID = require("mongodb").ObjectID;
-var DB_URL = "mongodb://localhost:27017/crossFill";
+var DB_URL = "mongodb://localhost:27017/crossFiller";
 var qs = require("querystring");
 
 var ERR_MSG = {
