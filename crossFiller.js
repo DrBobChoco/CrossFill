@@ -5,7 +5,7 @@ var bcrypt = require("bcrypt");
 var Cookies = require("cookies");
 var dbClient = require("mongodb").MongoClient;
 var ObjectID = require("mongodb").ObjectID;
-var DB_URL = "mongodb://localhost:27017/crossFiller";
+var DB_URL = require("./db/localConfig.js").getDBURL();
 var qs = require("querystring");
 
 var ERR_MSG = {
@@ -315,6 +315,10 @@ function doLogin(post, callback) {
 			callback(new Error(ERR_MSG.missingLoginData));
 	} else {
 		dbClient.connect(DB_URL, function(err, db) {
+			if(err) {
+				console.log("DB_URL: " + DB_URL);
+				callback(err);
+			}
 			var users = db.collection("users");
 			users.findOne({email:post.email}, function(err, user) {
 				if(err || !user) {
