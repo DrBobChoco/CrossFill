@@ -1,9 +1,9 @@
 var bcrypt = require("bcrypt");
 var dbClient = require("mongodb").MongoClient;
-var DB_URL = "mongodb://localhost:27017/crossFiller";
+var DB_URL = require("./localConfig.js").getDBURL();
 
 userData = [
-	{email: "drbobchoco@gmail.com", name: "Andrew Wilson", pw: "password"},
+	{email: "drbobchoco@gmail.com", name: "Andrew Wilson", pw: "thisisonlyatest"},
 	{email: "lilytiger@somewhere.com", name: "Lily Tiger", pw: "thingybob"}
 ];
 
