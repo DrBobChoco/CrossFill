@@ -1,4 +1,5 @@
 //save as localConfig.js
 module.exports.getDBURL = function() {
-	return "MONGO URL GOES HERE";
+	var connectionString =  "mongodb://localhost:27017/crossFiller";
+	return connectionString;
 }
