@@ -1,6 +1,6 @@
 var bcrypt = require("bcrypt");
 var dbClient = require("mongodb").MongoClient;
-var DB_URL = require("./localConfig.js").getDBURL();
+var DB_URL = require("./config.js").getDBURL();
 
 userData = [
 	{email: "drbobchoco@gmail.com", name: "Andrew Wilson", pw: "thisisonlyatest"},

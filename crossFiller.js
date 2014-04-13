@@ -5,7 +5,7 @@ var bcrypt = require("bcrypt");
 var Cookies = require("cookies");
 var dbClient = require("mongodb").MongoClient;
 var ObjectID = require("mongodb").ObjectID;
-var DB_URL = require("./db/localConfig.js").getDBURL();
+var DB_URL = require("./db/config.js").getDBURL();
 var qs = require("querystring");
 
 var ERR_MSG = {

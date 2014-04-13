@@ -1,7 +1,7 @@
 // Munge words + add to db
 
 var dbClient = require("mongodb").MongoClient;
-var DB_URL = require("./localConfig.js").getDBURL();
+var DB_URL = require("./config.js").getDBURL();
 
 var Iconv = require("iconv").Iconv;
 var fs = require("fs");
