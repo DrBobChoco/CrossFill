@@ -14,8 +14,10 @@ console.log("Done convert to " + allWords.length + " words, starting load...");
 
 dbClient.connect(DB_URL, function(err, db) {
 	var words = db.collection("words");
-	var wordEntry, i, done=0;
+	var wordEntry, insertData, i, done=0;
+	var insMax = 50000;
 
+	insertData = new Array();
 	for(i=0; i<allWords.length; i++) {
 		wordEntry = {};
 		wordEntry.word = allWords[i].trim();
@@ -24,9 +26,16 @@ dbClient.connect(DB_URL, function(err, db) {
 			wordEntry.numChars = wordEntry.letters.length;
 			wordEntry.rnd = Math.random();
 
-			words.insert(wordEntry, {w: 1}, function(err) { if(err) console.log(err); });
+			insertData.push(wordEntry);
 			done++;
+			if(insertData.length == insMax) {
+				words.insert(insertData, {w: 1}, function(err) { if(err) console.log(err); });
+				insertData = new Array();
+			}
 		}
+	}
+	if(insertData.length) {
+		words.insert(insertData, {w: 1}, function(err) { if(err) console.log(err); });
 	}
 	console.log("Finished " + done)
 });
