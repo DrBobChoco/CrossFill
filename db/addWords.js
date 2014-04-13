@@ -24,7 +24,7 @@ dbClient.connect(DB_URL, function(err, db) {
 			wordEntry.numChars = wordEntry.letters.length;
 			wordEntry.rnd = Math.random();
 
-			words.insert(wordEntry, function(err) { if(err) console.log(err); });
+			words.insert(wordEntry, {w: 1}, function(err) { if(err) console.log(err); });
 			done++;
 		}
 	}
