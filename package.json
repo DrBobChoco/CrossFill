@@ -11,5 +11,7 @@
   },
   "scripts": {
     "start": "node crossFiller.js"
-  }
+  },
+  "private": "true",
+  "main": "crossFIller.js"
 }
