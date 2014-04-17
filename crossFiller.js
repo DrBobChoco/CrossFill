@@ -8,6 +8,9 @@ var ObjectID = require("mongodb").ObjectID;
 var DB_URL = require("./db/config.js").getDBURL();
 var qs = require("querystring");
 
+var ipaddress = process.env.OPENSHIFT_NODEJS_IP || "127.0.0.1";
+var port = process.env.OPENSHIFT_NODEJS_PORT || 8080;
+
 var ERR_MSG = {
 	crosswordNotFound: "Crossword not found",
 	entityTooLarge: "Request entity too large",
@@ -578,5 +581,4 @@ function sendOK(response, body, type, extraHeaders) {
 }
 
 console.log("Starting...");
-//require("http").createServer(router).listen(8080);
-require("http").createServer(router).listen(80);
+require("http").createServer(router).listen(port, ipaddress, function() { console.log("Listening on " + ipaddress + ":" + port) });
