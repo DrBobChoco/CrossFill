@@ -13,5 +13,5 @@
     "start": "node crossFiller.js"
   },
   "private": "true",
-  "main": "crossFIller.js"
+  "main": "crossFiller.js"
 }
