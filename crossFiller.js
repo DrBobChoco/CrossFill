@@ -91,7 +91,7 @@ var router = bee.route({
 	},
 	"/getCrosswordList": {
 		"POST": function(req, res) {
-			console.log("* Get crossword list");
+			//console.log("* Get crossword list");
 			async.waterfall([
 					function(callback) {
 						callback(null, req, res);
@@ -110,9 +110,8 @@ var router = bee.route({
 	},
 	"/getCrosswordInfo/`crosswordId`": {
 		"POST": function(req, res, tokens, values) {
-			console.log("* getCrosswordInfo");
+			//console.log("* getCrosswordInfo");
 			//console.log(tokens);
-			// Should realy double check logged in user and pass userId to sendCrosswordInfo
 			async.waterfall([
 				function(callback) {
 					callback(null, req, res);
@@ -168,7 +167,7 @@ var router = bee.route({
 					},
 					getPost,
 					function(post, callback) {
-						console.log("* pre createCrossword shim");
+						//console.log("* pre createCrossword shim");
 						callback(null, user, post);
 					},
 					createCrossword
@@ -213,11 +212,11 @@ var router = bee.route({
 	},
 	"/getSuggestedWords/`pattern`": {
 		"POST": function(req, res, tokens, values) {
-			console.log("* suggestWords");
+			//console.log("* suggestWords");
 			dbClient.connect(DB_URL, function(err, db) {
-				console.log("Pattern before -" + tokens.pattern + "-");
+				//console.log("Pattern before -" + tokens.pattern + "-");
 				var pattern = tokens.pattern.replace(/%20/g, ' ').toUpperCase();
-				console.log("Pattern after -" + pattern + "-");
+				//console.log("Pattern after -" + pattern + "-");
 				var criteria = {};
 				criteria.numChars = pattern.length;
 				for(var i=0; i<pattern.length; i++) {
@@ -225,8 +224,8 @@ var router = bee.route({
 						criteria["letters." + i] = pattern.charAt(i);
 					}
 				}
-				console.log("Criteria:");
-				console.log(criteria);
+				//console.log("Criteria:");
+				//console.log(criteria);
 				var words = db.collection("words");
 				words.count(criteria, function(err, count) {
 					if(err) {
@@ -245,7 +244,7 @@ var router = bee.route({
 		}
 	},
 	"/export/`crosswordId`": function(req, res, tokens, values) {
-		console.log("* getCrosswordInfo");
+		//console.log("* getCrosswordInfo");
 		//console.log(tokens);
 		var user;
 		async.waterfall([
@@ -291,7 +290,7 @@ var router = bee.route({
  * Out: POST object
  */
 function getPost(req, callback) {
-	console.log("* getPost");
+	//console.log("* getPost");
 	var postBody = "";
 	req.on("data", function(data) {
 		postBody += data;
@@ -313,13 +312,12 @@ function getPost(req, callback) {
  * Out: userId, login cookie val
  */
 function doLogin(post, callback) {
-	console.log("* doLogin - email: " + post.email + ", password: " + post.password);
+	//console.log("* doLogin - email: " + post.email + ", password: " + post.password);
 	if(!post.email || !post.password) {
-			callback(new Error(ERR_MSG.missingLoginData));
+		callback(new Error(ERR_MSG.missingLoginData));
 	} else {
 		dbClient.connect(DB_URL, function(err, db) {
 			if(err) {
-				console.log("DB_URL: " + DB_URL);
 				callback(err);
 			}
 			var users = db.collection("users");
@@ -355,7 +353,7 @@ function getLoggedInUser(req, res, callback) {
 	var cookies = new Cookies(req, res);
 	var userId = cookies.get("userId");
 	var loginSecret = cookies.get("loginCheck");
-	console.log("* Get logged in user");
+	//console.log("* Get logged in user");
 	if(!userId || userId.length != 24 || !loginSecret) {
 		callback(new Error(ERR_MSG.notLoggedIn));
 	} else {
@@ -363,7 +361,7 @@ function getLoggedInUser(req, res, callback) {
 			var users = db.collection("users");
 			users.findOne({_id:ObjectID.createFromHexString(userId), loginSecret:loginSecret}, function(err, user) {
 				if(err || !user) {
-					console.log("Error");
+					//console.log("Error");
 					callback(err?err:new Error(ERR_MSG.notLoggedIn));
 				} else {
 					//console.log("Got a user " + user.name);
@@ -428,7 +426,7 @@ function getCrosswordInfo(collection, id, userId, clientFormat, callback) {
 	}
 	collection.findOne(criteria, function(err, result) {
 		if(err) {
-			console.log("sCI findOne err -" + err);
+			//console.log("sCI findOne err -" + err);
 			callback(err);
 		}
 		if(result) {
@@ -499,7 +497,7 @@ function formatCrosswordExport(crosswordInfo, user, callback) {
  * Out: new crosswordId object
  */
 function createCrossword(user, post, callback) {
-	console.log("* createCrossword");
+	//console.log("* createCrossword");
 	if(!post.title || !post.gridData) {
 		//console.log("missing a value");
 		//console.log(post);
@@ -512,7 +510,7 @@ function createCrossword(user, post, callback) {
 			var crosswords = db.collection("crosswords");
 			crosswords.insert({userId:user._id.toHexString(), title:post.title, gridData:gridData}, function(err, result) {
 				if(err) {
-					console.log("insert error");
+					//console.log("insert error");
 					callback(err);
 				} else {
 					//console.log("insert success");
@@ -529,9 +527,9 @@ function createCrossword(user, post, callback) {
  * Out: nothing
  */
 function saveItem(user, post, callback) {
-	console.log("* saveItem");
+	//console.log("* saveItem");
 	//console.log(user);
-	console.log(post);
+	//console.log(post);
 	var types = ['title', 'answer', 'answerLocked', 'clue'];
 	if(!post.crosswordId || !post.itemType || types.indexOf(post.itemType) == -1 || !post.itemData ||
 			((post.itemType == "clue" || post.itemType == "answerLocked") && (!post.direction || !post.number)) ||
@@ -542,7 +540,7 @@ function saveItem(user, post, callback) {
 		if(post.itemType == "title") {
 			setData = {title:post.itemData};
 		} else if(post.itemType == "answer") {
-			console.log("Answer");
+			//console.log("Answer");
 			var row = post['row[]'];
 			var col = post['col[]'];
 			for(var i=0; i<post.itemData.length; i++) {
@@ -556,8 +554,8 @@ function saveItem(user, post, callback) {
 		}
 		dbClient.connect(DB_URL, function(err, db) {
 			var crosswords = db.collection("crosswords");
-			console.log("About to update...");
-			console.log(setData);
+			//console.log("About to update...");
+			//console.log(setData);
 			crosswords.update({_id:ObjectID.createFromHexString(post.crosswordId),userId:user._id.toHexString()},
 					{$set:setData}, function(err) {
 				callback(err);
