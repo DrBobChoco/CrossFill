@@ -10,6 +10,6 @@
     "querystring": "0.2.x"
   },
   "scripts": {
-    "start": "node CrossFiller.js"
+    "start": "node crossFiller.js"
   }
 }
