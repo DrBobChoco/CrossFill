@@ -5,3 +5,10 @@
 	<link rel="stylesheet" type="text/css" href="/css/crossFill.css">
 </head>
 <body>
+{% if not noMenu %}
+	<ul class="mainMenu">
+		<li class="mainMenu"><a href="/list">Crossword List</a></li>
+		<li class="mainMenu"><a href="">Edit Profile</a></li>
+		<li class="mainMenu"><a href="/logout">Logout</a></li>
+	</ul>
+{% endif %}

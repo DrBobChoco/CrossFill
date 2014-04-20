@@ -38,14 +38,13 @@ var router = bee.route({
 				});
 				res.end();
 			} else {
-				safeRender(req, res, "index.html");
+				safeRender(req, res, "index.html", {"noMenu": true});
 			}
 		});
 	},
 	"/list": function(req, res) {
 		loggedInSafeRender(req, res, "list.html", {"title": "Crossword List"});
 	},
-	//"/edit/`crosswordId`": loggedInStaticFile("./static/edit.html", "text/html"),
 	"/edit/`crosswordId`": function(req, res) {
 		loggedInSafeRender(req, res, "edit.html", {"title": "Edit Crossword"});
 	},
@@ -572,25 +571,6 @@ function loggedInSafeRender(req, res, template, context) {
 			res.end();
 		}
 	});
-}
-
-/**
- * Wraps bee.static file and redirects to / if not logged in
- * returns a callback so can be used directly in the route setup
- */
-function loggedInStaticFile(filePath, mediaType) {
-	return function(req, res) {
-		getLoggedInUser(req, res, function(err, user) {
-			if(!err && user) {
-				bee.staticFile(filePath, mediaType)(req, res);
-			} else {
-				res.writeHead(303, {
-					"Location": "/"
-				});
-				res.end();
-			}
-		});
-	};
 }
 
 function sendOK(response, body, type, extraHeaders) {
