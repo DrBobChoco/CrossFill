@@ -1,0 +1,9 @@
+{% include "header.html" %}
+<h1>CrossFiller</h1>
+{% include "errors.html" %}
+<form action="/login" method="post">
+	Email:&nbsp;<input type="text" name="email"><br>
+	Password:&nbsp;<input type="password" name="password"><br>
+	<input type="submit" value="Login">
+</form>
+{% include "footer.html" %}

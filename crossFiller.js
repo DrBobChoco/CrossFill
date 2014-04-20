@@ -1,15 +1,19 @@
 // CrossFill server
 
-var async = require("async");
-var bcrypt = require("bcrypt");
-var Cookies = require("cookies");
+var ipaddress = process.env.OPENSHIFT_NODEJS_IP || "127.0.0.1";
+var port = process.env.OPENSHIFT_NODEJS_PORT || 8080;
+
 var dbClient = require("mongodb").MongoClient;
 var ObjectID = require("mongodb").ObjectID;
 var DB_URL = require("./db/config.js").getDBURL();
-var qs = require("querystring");
 
-var ipaddress = process.env.OPENSHIFT_NODEJS_IP || "127.0.0.1";
-var port = process.env.OPENSHIFT_NODEJS_PORT || 8080;
+var nunjucks = require("nunjucks");
+nunjucks.configure("templates");
+
+var async = require("async");
+var bcrypt = require("bcrypt");
+var Cookies = require("cookies");
+var qs = require("querystring");
 
 var ERR_MSG = {
 	crosswordNotFound: "Crossword not found",
@@ -34,12 +38,17 @@ var router = bee.route({
 				});
 				res.end();
 			} else {
-				bee.staticFile("./static/index.html", "text/html")(req, res);
+				safeRender(req, res, "index.html");
 			}
 		});
 	},
-	"/edit/`crosswordId`": loggedInStaticFile("./static/edit.html", "text/html"),
-	"/list": loggedInStaticFile("./static/list.html", "text/html"),
+	"/list": function(req, res) {
+		loggedInSafeRender(req, res, "list.html", {"title": "Crossword List"});
+	},
+	//"/edit/`crosswordId`": loggedInStaticFile("./static/edit.html", "text/html"),
+	"/edit/`crosswordId`": function(req, res) {
+		loggedInSafeRender(req, res, "edit.html", {"title": "Edit Crossword"});
+	},
 	"/css/`path...`": bee.staticDir("./static/css/", {".css": "text/css"}),
 	"/images/`path...`": bee.staticDir("./static/images/", {".jpg": "image/jpeg", ".gif": "image/gif"}),
 	"/javascript/`path...`": bee.staticDir("./static/javascript/", {".js": "text/javascript"}),
@@ -55,15 +64,13 @@ var router = bee.route({
 				doLogin
 			], function(err, userId, loginSecret) {
 					if(err) {
-						console.log(err);
 						if(err.message == ERR_MSG.loginFailed ||
 							err.message == ERR_MSG.missingLoginData ||
 							err.message == ERR_MSG.userNotFound) {
 							//all count as login fail
-							res.writeHead(303, {
-								"Location": "/badLogin"
-							});
+							safeRender(req, res, "index.html", {"errors":["Incorrect user name or password"]});
 						} else {
+							console.log(err);
 							res.writeHead(303, {
 								"Location": "/"
 							});
@@ -82,7 +89,6 @@ var router = bee.route({
 	},
 	"/logout": function(req, res) {
 		var cookies = new Cookies(req, res);
-		//should probably $unset loginSecret in db for neatness
 		cookies.set("userId").set("loginCheck");
 		res.writeHead(303, {
 			"Location": "/"
@@ -373,25 +379,6 @@ function getLoggedInUser(req, res, callback) {
 }
 
 /**
- * Wraps bee.static file and redirects to / if not logged in
- * returns a callback so can be used directly in the route setup
- */
-function loggedInStaticFile(filePath, mediaType) {
-	return function(req, res) {
-		getLoggedInUser(req, res, function(err, user) {
-			if(!err && user) {
-				bee.staticFile(filePath, mediaType)(req, res);
-			} else {
-				res.writeHead(303, {
-					"Location": "/"
-				});
-				res.end();
-			}
-		});
-	};
-}
-
-/**
  * Async waterfall function
  * In: user object, response
  * Out: Nothing
@@ -562,6 +549,48 @@ function saveItem(user, post, callback) {
 			});
 		});
 	}
+}
+
+function safeRender(req, res, template, context) {
+	try {
+		sendOK(res, nunjucks.render(template, context), "text/html");
+	}
+	catch(err) {
+		console.log(err);
+		router.error(req, res, new Error("Mystery server error No.1."));
+	}
+}
+
+function loggedInSafeRender(req, res, template, context) {
+	getLoggedInUser(req, res, function(err, user) {
+		if(!err && user) {
+			safeRender(req, res, template, context);
+		} else {
+			res.writeHead(303, {
+				"Location": "/"
+			});
+			res.end();
+		}
+	});
+}
+
+/**
+ * Wraps bee.static file and redirects to / if not logged in
+ * returns a callback so can be used directly in the route setup
+ */
+function loggedInStaticFile(filePath, mediaType) {
+	return function(req, res) {
+		getLoggedInUser(req, res, function(err, user) {
+			if(!err && user) {
+				bee.staticFile(filePath, mediaType)(req, res);
+			} else {
+				res.writeHead(303, {
+					"Location": "/"
+				});
+				res.end();
+			}
+		});
+	};
 }
 
 function sendOK(response, body, type, extraHeaders) {
