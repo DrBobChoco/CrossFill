@@ -301,7 +301,7 @@ var router = bee.route({
 					},
 					getLoggedInUser,
 					function(user, callback) {
-						callback(null, user, post);
+						callback(null, req, res, user, post);
 					},
 					updateUser,
 					function(user, callback) {
@@ -585,7 +585,7 @@ function saveItem(user, post, callback) {
  * In: user, post data
  * Out: user (inc. status message / errors)
  */
-function updateUser(user, post, callback) {
+function updateUser(req, res, user, post, callback) {
 	var statusMsgs = new Array();
 	var errors = new Array();
 	var newUserInfo = {};
@@ -611,6 +611,7 @@ function updateUser(user, post, callback) {
 			errors.push("Old password incorrect.");
 		} else {
 			newUserInfo.pwHash = bcrypt.hashSync(post.newPassword, bcrypt.genSaltSync());
+			newUserInfo.loginSecret = new ObjectID().toHexString();
 		}
 	}
 
@@ -629,6 +630,10 @@ function updateUser(user, post, callback) {
 					}
 					user.errors = errors;
 				} else {
+					if(newUserInfo.loginSecret) {
+						var cookies = new Cookies(req, res);
+						cookies.set("loginCheck", newUserInfo.loginSecret);
+					}
 					statusMsgs.unshift("Profile updated.");
 					user.statusMsgs = statusMsgs;
 				}
