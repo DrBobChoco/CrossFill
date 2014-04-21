@@ -23,7 +23,8 @@ var ERR_MSG = {
 	missingCrosswordData: "Missing crossword data",
 	noGridIds: "No grid ids found",
 	notLoggedIn: "User not logged in",
-	userNotFound: "User not found"
+	userNotFound: "User not found",
+	generalUserError: 'There was an error. If it persists contact us at <a href="mailto:crossfiller@gmail.com">crossfiller@gmail.com</a>.'
 };
 var MAX_SUGGESTIONS = 8;
 
@@ -90,6 +91,26 @@ var router = bee.route({
 		});
 		res.end();
 	},
+	"/validateEmail/`email`/`secret`": function(req, res, tokens, values) {
+		dbClient.connect(DB_URL, function(err, db) {
+			var users = db.collection("users");
+			users.count({email:tokens.email, evSecret:tokens.secret}, function(err, result) {
+				if(err || result != 1) {
+					safeRender(req, res, "generic.html", {noMenu:true, body:ERR_MSG.generalUserError})
+				} else {
+					users.update({email:tokens.email}, {$set:{lastValidEmail:tokens.email, evSecret:""}}, function(err, result) {
+						if(err || !result) {
+							safeRender(req, res, "generic.html", {noMenu:true, body:ERR_MSG.generalUserError})
+						} else {
+							safeRender(req, res, "generic.html", {noMenu:true, body:"Email, " + tokens.email + ", validated."});
+						}
+					});
+				}
+			});
+		});
+	},
+	
+	// AJAX list / edit functions
 	"/getCrosswordList": {
 		"POST": function(req, res) {
 			//console.log("* Get crossword list");
@@ -244,6 +265,8 @@ var router = bee.route({
 			});
 		}
 	},
+
+	// Export
 	"/export/`crosswordId`": function(req, res, tokens, values) {
 		//console.log("* getCrosswordInfo");
 		//console.log(tokens);
@@ -276,6 +299,8 @@ var router = bee.route({
 				}
 			});
 	},
+
+	// Profile
 	"/profile/edit": {
 		"GET": function(req, res) {
 			async.waterfall([
