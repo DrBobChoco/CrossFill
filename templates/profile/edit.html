@@ -1,0 +1,20 @@
+{% include "header.html" %}
+<h1>Edit Profile</h1>
+{% include "errors.html" %}
+{% if statusMsgs %}
+	<ul>
+	{% for statusMsg in statusMsgs %}
+		<li>{{ statusMsg }}</li>
+	{% endfor %}
+	</ul>
+{% endif %}
+<form action="" method="post">
+	Name:&nbsp;<input type="text" name="name" value="{{name}}"><br>
+	Email:&nbsp;<input type="text" name="email" value="{{email}}"></br>
+	<p>Change Password:</p>
+	Old Password:&nbsp;<input type="password" name="oldPassword"><br>
+	New Password:&nbsp;<input type="password" name="newPassword"><br>
+	Confirm Password:&nbsp;<input type="password" name="confirmPassword"><br>
+	<input type="submit" value="Save">
+</form>
+{% include "footer.html" %}

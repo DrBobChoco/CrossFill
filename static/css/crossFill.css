@@ -71,6 +71,10 @@ li.mainMenu {
 	padding: 5px;
 }
 
+li.errorList {
+	color: red;
+}
+
 #editPanel {
 	/*
 	position: absolute;

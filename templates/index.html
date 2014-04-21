@@ -1,9 +1,17 @@
 {% include "header.html" %}
 <h1>CrossFiller</h1>
 {% include "errors.html" %}
-<form action="/login" method="post">
-	Email:&nbsp;<input type="text" name="email"><br>
+<form action="/login" method="post" id="loginForm">
+	Email:&nbsp;<input type="text" name="email" id="email"><!-- &nbsp;<input type="button" value="Send Reminder" id="sendReminder"> --><br>
 	Password:&nbsp;<input type="password" name="password"><br>
 	<input type="submit" value="Login">
 </form>
+<script src="/javascript/jquery-2.0.3.min.js"></script>
+<script>
+	$("#sendReminder").on("click", function() {
+		if($("#email").val()) {
+			$("#loginForm").attr("action", "/sendPWReminder").submit();
+		}
+	});
+</script>
 {% include "footer.html" %}

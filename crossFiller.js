@@ -70,17 +70,13 @@ var router = bee.route({
 							safeRender(req, res, "index.html", {"errors":["Incorrect user name or password"]});
 						} else {
 							console.log(err);
-							res.writeHead(303, {
-								"Location": "/"
-							});
+							res.writeHead(303, {"Location": "/"});
 							res.end();
 						}
 					} else {
 						var cookies = new Cookies(req, res);
 						cookies.set("userId", userId).set("loginCheck", loginSecret);
-						res.writeHead(303, {
-								"Location": "/list"
-						});
+						res.writeHead(303, {"Location": "/list"});
 						res.end();
 					}
 				});
@@ -279,6 +275,40 @@ var router = bee.route({
 					sendOK(res, crosswordExport, "application/x-unknown", {"Content-Disposition": 'attachment; filename="' + crosswordTitle + '.txt"'});
 				}
 			});
+	},
+	"/profile/edit": {
+		"GET": function(req, res) {
+			async.waterfall([
+				function(callback) {
+					callback(null, req, res);
+				},
+				getLoggedInUser,
+				function(user, callback) {
+						callback(null, req, res, user);
+				}
+			], showProfileEdit);
+		},
+		"POST": function(req, res) {
+			var post;
+			async.waterfall([
+					function(callback) {
+						callback(null,req);
+					},
+					getPost,
+					function(postIn, callback) {
+						post = postIn;
+						callback(null, req, res);
+					},
+					getLoggedInUser,
+					function(user, callback) {
+						callback(null, user, post);
+					},
+					updateUser,
+					function(user, callback) {
+						callback(null, req, res, user);
+					}
+			], showProfileEdit);
+		}
 	},
 
 	// Other
@@ -547,6 +577,82 @@ function saveItem(user, post, callback) {
 				callback(err);
 			});
 		});
+	}
+}
+
+/**
+ * Async waterfall function
+ * In: user, post data
+ * Out: user (inc. status message / errors)
+ */
+function updateUser(user, post, callback) {
+	var statusMsgs = new Array();
+	var errors = new Array();
+	var newUserInfo = {};
+
+	user.name = newUserInfo.name = post.name;
+
+	if(post.email != user.email) {
+		user.email = newUserInfo.email = post.email;
+		var atPos = post.email.indexOf("@");
+		if(atPos < 1 || atPos > post.email.length -2) {
+			errors.push("Invalid email address.");
+		} else {
+			statusMsgs.push("Validation mail sent to new address.");
+			statusMsgs.push("Log in with new address but password reminders will be sent to the old one until the new one is validated");
+			//send conf mail here
+		}
+	}
+
+	if(post.newPassword) {
+		if(post.newPassword != post.confirmPassword) {
+			errors.push("Passwords do not match.");
+		} else if(!bcrypt.compareSync(post.oldPassword, user.pwHash)) {
+			errors.push("Old password incorrect.");
+		} else {
+			newUserInfo.pwHash = bcrypt.hashSync(post.newPassword, bcrypt.genSaltSync());
+		}
+	}
+
+	if(!errors.length) {
+		dbClient.connect(DB_URL, function(err, db) {
+			var users = db.collection("users");
+			users.update({_id:user._id}, {$set:newUserInfo}, function(err, result) {
+				if(err) {
+					errors.push("DB err: " + err.description + "(" + err.number + ")");
+					user.errors = errors;
+				} else if(!result) {
+					errors.push("Update failed.");
+					user.errors = errors;
+				} else {
+					statusMsgs.unshift("Profile updated.");
+					user.statusMsgs = statusMsgs;
+				}
+				callback(null, user);
+			});
+		});
+	} else {
+		user.errors = errors;
+		callback(null, user);
+	}
+}
+
+/**
+ * Async waterfall final function
+ * In: error, request, response, user (inc. status message)
+ * Out: nothing
+ */
+function showProfileEdit(err, req, res, user) {
+	//console.log("* showProfileEdit");
+	if(err) {
+		if(err.message == ERR_MSG.notLoggedIn) {
+			res.writeHead(303, {"Location": "/"});
+			res.end();
+		} else {
+			router.error(req, res, err);
+		}
+	} else {
+		safeRender(req, res, "profile/edit.html", user);
 	}
 }
 
