@@ -15,6 +15,16 @@ var bcrypt = require("bcrypt");
 var Cookies = require("cookies");
 var qs = require("querystring");
 
+var nodemailer = require("nodemailer");
+var mailConfig = require("./mailConfig.js");
+var smtpTransport = nodemailer.createTransport("SMTP",{
+	service: "Gmail",
+	auth: {
+		user: mailConfig.getUser(),
+		pass: mailConfig.getPassword()
+	}
+});
+
 var ERR_MSG = {
 	crosswordNotFound: "Crossword not found",
 	entityTooLarge: "Request entity too large",
@@ -44,6 +54,7 @@ var router = bee.route({
 		});
 	},
 	"/list": function(req, res) {
+		//console.log(req);
 		loggedInSafeRender(req, res, "list.html", {"title": "Crossword List"});
 	},
 	"/edit/`crosswordId`": function(req, res) {
@@ -109,7 +120,10 @@ var router = bee.route({
 			});
 		});
 	},
-	
+	"/blockEmail/`email`/`secret`": function(req, res, tokens, values) {
+		//add to bloked email collection
+	},
+
 	// AJAX list / edit functions
 	"/getCrosswordList": {
 		"POST": function(req, res) {
@@ -326,7 +340,7 @@ var router = bee.route({
 					},
 					getLoggedInUser,
 					function(user, callback) {
-						callback(null, user, post);
+						callback(null, user, post, req.headers.host);
 					},
 					updateUser,
 					function(user, callback) {
@@ -607,10 +621,10 @@ function saveItem(user, post, callback) {
 
 /**
  * Async waterfall function
- * In: user, post data
+ * In: user, post data, host (from req)
  * Out: user (inc. status message / errors)
  */
-function updateUser(user, post, callback) {
+function updateUser(user, post, host, callback) {
 	var statusMsgs = new Array();
 	var errors = new Array();
 	var newUserInfo = {};
@@ -623,9 +637,9 @@ function updateUser(user, post, callback) {
 		if(atPos < 1 || atPos > post.email.length -2) {
 			errors.push("Invalid email address.");
 		} else {
+			newUserInfo.evSecret = new ObjectID().toHexString();
 			statusMsgs.push("Validation mail sent to new address.");
 			statusMsgs.push("Log in with new address but password reminders will be sent to the old one until the new one is validated");
-			//send conf mail here
 		}
 	}
 
@@ -656,6 +670,16 @@ function updateUser(user, post, callback) {
 				} else {
 					statusMsgs.unshift("Profile updated.");
 					user.statusMsgs = statusMsgs;
+					if(newUserInfo.evSecret) {
+						var context = {
+							to: newUserInfo.email,
+							subject: "Email validation for CrossFill",
+							server: host,
+							email: newUserInfo.email,
+							evSecret: newUserInfo.evSecret
+						};
+						sendEmail("validateEmail", context);
+					}
 				}
 				callback(null, user);
 			});
@@ -681,8 +705,34 @@ function showProfileEdit(err, req, res, user) {
 			router.error(req, res, err);
 		}
 	} else {
+		user.title = "Edit Profile";
 		safeRender(req, res, "profile/edit.html", user);
 	}
+}
+
+function sendEmail(template, context) {
+	var mailOptions = {
+		from: mailConfig.getAddress(),
+		to: context.to,
+		subject: context.subject,
+	};
+	try {
+		mailOptions.txt = nunjucks.render("email/" + template + ".txt", context);
+	}
+	catch(e) {}
+	try {
+		mailOptions.html = nunjucks.render("email/" + template + ".html", context);
+	}
+	catch(e) {}
+
+	smtpTransport.sendMail(mailOptions, function(err, result) {
+		if(err) {
+			console.log("Mail error [" + template + " to " + context.to + "]:");
+			console.log(err);
+		}
+		console.log("Mail result:");
+		console.log(result);
+	});
 }
 
 function safeRender(req, res, template, context) {

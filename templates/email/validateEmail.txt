@@ -1,0 +1,10 @@
+Hello,
+
+To validate this email address on CrossFiller go here:
+http://{{server}}/validateEmail/{{email}}/{{evSecret}}
+
+If this message has been sent in error go here:
+http://{{server}}/blockEmail/{{email}}/{{evSecret}}
+
+Cheers,
+CrossFiller <crossfiller@gmail.com>
