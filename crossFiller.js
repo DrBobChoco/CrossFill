@@ -618,11 +618,15 @@ function updateUser(user, post, callback) {
 		dbClient.connect(DB_URL, function(err, db) {
 			var users = db.collection("users");
 			users.update({_id:user._id}, {$set:newUserInfo}, function(err, result) {
-				if(err) {
-					errors.push("DB err: " + err.description + "(" + err.number + ")");
-					user.errors = errors;
-				} else if(!result) {
-					errors.push("Update failed.");
+				if(err || !result) {
+					//console.log(err);
+					if(!result && !err) {
+						errors.push("Update failed.");
+					} else if(err.code == 11001) {
+						errors.push("Email address already in use.");
+					} else {
+						errors.push("Mystery server error No.2.");
+					}
 					user.errors = errors;
 				} else {
 					statusMsgs.unshift("Profile updated.");
