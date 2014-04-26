@@ -110,18 +110,47 @@ var router = bee.route({
 					safeRender(req, res, "generic.html", {noMenu:true, body:ERR_MSG.generalUserError})
 				} else {
 					users.update({email:tokens.email}, {$set:{lastValidEmail:tokens.email, evSecret:""}}, function(err, result) {
+						var body;
 						if(err || !result) {
-							safeRender(req, res, "generic.html", {noMenu:true, body:ERR_MSG.generalUserError})
+							body = ERR_MSG.generalUserError;
 						} else {
-							safeRender(req, res, "generic.html", {noMenu:true, body:"Email, " + tokens.email + ", validated."});
+							body = "Email, " + tokens.email + ", validated.";
 						}
+						safeRender(req, res, "generic.html", {noMenu:true, body:body});
 					});
 				}
 			});
 		});
 	},
 	"/blockEmail/`email`/`secret`": function(req, res, tokens, values) {
-		//add to bloked email collection
+		dbClient.connect(DB_URL, function(err, db) {
+			var users = db.collection("users");
+			users.findOne({email:tokens.email, evSecret:tokens.secret}, function(err, user) {
+				if(err || !user) {
+					safeRender(req, res, "generic.html", {noMenu:true, body:ERR_MSG.generalUserError})
+				} else {
+					users.update({email:tokens.email}, {$set:{email:user.lastValidEmail, evSecret:""}}, function(errUser, result) {
+						var blockedEmails = db.collection("blockedEmails");
+						blockedEmails.insert({email:tokens.email}, function(errBlocked, result) {
+							var body;
+							if(errBlocked && errBlocked.code == 11000) {
+								//Should never happen as user should never have a blocked email set
+								console.log("Error: user with blocked email [" + user._id + ", " + tokens.email + "]");
+								body = "Email, " + tokens.email + " already blocked.";
+							} else if(errUser || errBlocked || !result) {
+								body = ERR_MSG.generalUserError;
+								console.log(errUser);
+								console.log(errBlocked);
+								console.log(result);
+							} else {
+								body = "Email, " + tokens.email + ", blocked.";
+							}
+							safeRender(req, res, "generic.html", {noMenu:true, body:body});
+						});
+					});
+				}
+			});
+		});
 	},
 
 	// AJAX list / edit functions
@@ -712,7 +741,7 @@ function showProfileEdit(err, req, res, user) {
 
 function sendEmail(template, context) {
 	var mailOptions = {
-		from: mailConfig.getAddress(),
+		from: mailConfig.getName() + " <" + mailConfig.getAddress() + ">",
 		to: context.to,
 		subject: context.subject,
 	};
