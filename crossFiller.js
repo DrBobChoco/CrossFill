@@ -139,9 +139,6 @@ var router = bee.route({
 								body = "Email, " + tokens.email + " already blocked.";
 							} else if(errUser || errBlocked || !result) {
 								body = ERR_MSG.generalUserError;
-								console.log(errUser);
-								console.log(errBlocked);
-								console.log(result);
 							} else {
 								body = "Email, " + tokens.email + ", blocked.";
 							}
