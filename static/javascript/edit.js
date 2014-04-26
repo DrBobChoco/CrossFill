@@ -6,11 +6,6 @@ function otherDir(dir) {
 	return  dir == 'across' ? 'down' : 'across';
 };
 
-/**
- * Todo
- * disable / enable buttons as needed
- */
-
 var crosswordId = 0;
 var gridData = [];
 var currSpace = {
@@ -261,7 +256,6 @@ function setTitle(update) {
 
 //================ Answer Stuff ================
 
-// Todo - check if locked, disable suggest button
 function spaceClick() {
 	//console.log("Click on r" + $(this).attr("row") + ",c" + $(this).attr("col"));
 	//console.log("Part of (" + $(this).attr("across") + ") across, (" + $(this).attr("down") + ") down");
@@ -332,7 +326,7 @@ function lockCB(saveData) {
 	if(!saveData.error) {
 		answerLocked[currClueAnswer.dir][currClueAnswer.num] = saveData.itemData;
 		markLockedAnswers();
-		setLockUnlockBtnText();
+		setButtons();
 	}
 }
 
@@ -347,16 +341,15 @@ function markLockedAnswers() {
 	});
 }
 
-function setLockUnlockBtnText() {
-	$("#lockUnlock").val(answerLocked[currClueAnswer.dir][currClueAnswer.num]?"Unlock":"Lock");
-}
-
 function editAnswer() {
+	var disabled, ch;
 	$("#answerPrompt").text("Answer for " + currClueAnswer.num + " " + currClueAnswer.dir + ":");
 	$("#answerEditHolder").empty();
-	var answer = getAnswer();
+	var answer = getAnswer(true);
 	for(var i=0; i<answer.length; i++) {
-		$("#answerEditHolder").append('<input type="text" size="1" maxlength="1" value="' + answer.charAt(i) + '" class="answerEdit">');
+		ch = answer.charAt(i);
+		disabled = (ch == " " ? "" : ' disabled="disabled"');
+		$("#answerEditHolder").append('<input type="text" size="1" maxlength="1" value="' + ch + '" class="answerEdit"' + disabled +'>');
 	}
 	showDialog("#answerDlg");
 	$("#answerEditHolder :first").focus();
@@ -461,7 +454,7 @@ function saveAnswer(ev) {
 		col[i] = $(cells[i]).attr("col");
 	}
 
-	console.log("About to save answer: " + answer + "\nrow:" + JSON.stringify(row) + "\ncol" + JSON.stringify(col));
+	//console.log("About to save answer: " + answer + "\nrow:" + JSON.stringify(row) + "\ncol" + JSON.stringify(col));
 	saveItem({itemType:"answer", row:row, col:col, itemData:answer.toUpperCase(), dialog:ev.data}, answerCB);
 }
 
@@ -538,11 +531,20 @@ function newSelection() {
 	$('#gridOuter [' + currClueAnswer.dir + '="' + currClueAnswer.num + '"]').css("background-color", HILIGHT);
 	$('.clueHolder[dir="' + currClueAnswer.dir + '"][clueNum="' + currClueAnswer.num + '"]').css("background-color", HILIGHT);
 
-	setLockUnlockBtnText();
+	setButtons();
+}
 
-	$("#enterWord").removeAttr("disabled");
-	$("#suggestWords").removeAttr("disabled");
+function setButtons() {
+	$("#lockUnlock").val(answerLocked[currClueAnswer.dir][currClueAnswer.num]?"Unlock":"Lock");
 	$("#lockUnlock").removeAttr("disabled");
+
+	if(answerLocked[currClueAnswer.dir][currClueAnswer.num]) {
+		$("#enterWord").attr("disabled", "disabled");
+		$("#suggestWords").attr("disabled", "disabled");
+	} else {
+		$("#enterWord").removeAttr("disabled");
+		$("#suggestWords").removeAttr("disabled");
+	}
 }
 
 function saveItem(saveData, callback) {
@@ -554,7 +556,7 @@ function saveItem(saveData, callback) {
 		dataType: "text",
 		data: saveData,
 		success: function(data, stat, jqXHR) {
-			console.log("* saveItem success");
+			//console.log("* saveItem success");
 			if(!saveData.suppressStatus) {
 				flashStatusMsg((saveData.statusType ? saveData.statusType : saveData.itemType) + " saved.");
 			}
