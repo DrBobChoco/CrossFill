@@ -1,6 +1,7 @@
 use crossFiller
 
 db.users.ensureIndex({email: 1}, {unique: true});
+db.blockedEmails.ensureIndex({email: 1}, {unique: true});
 db.crosswords.ensureIndex({userId: 1});
 db.words.ensureIndex({numChars: 1});
 db.words.ensureIndex({rnd: 1});

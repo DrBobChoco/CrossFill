@@ -1,4 +1,4 @@
-// CrossFill server
+// CrossFiller server
 
 var ipaddress = process.env.OPENSHIFT_NODEJS_IP || "127.0.0.1";
 var port = process.env.OPENSHIFT_NODEJS_PORT || 8080;
@@ -7,28 +7,21 @@ var dbClient = require("mongodb").MongoClient;
 var ObjectID = require("mongodb").ObjectID;
 var DB_URL = require("./db/config.js").getDBURL();
 
-var nunjucks = require("nunjucks");
-nunjucks.configure("templates");
-
 var async = require("async");
 var bcrypt = require("bcrypt");
 var Cookies = require("cookies");
 var qs = require("querystring");
 
-var ERR_MSG = {
-	crosswordNotFound: "Crossword not found",
-	entityTooLarge: "Request entity too large",
-	loginFailed: "Login failed",
-	missingLoginData: "Missing login data",
-	missingCrosswordData: "Missing crossword data",
-	noGridIds: "No grid ids found",
-	notLoggedIn: "User not logged in",
-	userNotFound: "User not found"
-};
+var ERR_MSG = require("./errMsg.js");
 var MAX_SUGGESTIONS = 8;
 
 var bee = require("beeline");
-var router = bee.route({
+var router = bee.route();
+
+var output = require("./output.js")(router);
+var mailer = require("./mailer.js")(output);
+
+router.add({
 	// Static(ish) paths
 	"/": function(req, res) {
 		getLoggedInUser(req, res, function(err, user) {
@@ -38,11 +31,12 @@ var router = bee.route({
 				});
 				res.end();
 			} else {
-				safeRender(req, res, "index.html", {"noMenu": true});
+				output.safeRender(req, res, "index.html", {"noMenu": true});
 			}
 		});
 	},
 	"/list": function(req, res) {
+		//console.log(req);
 		loggedInSafeRender(req, res, "list.html", {"title": "Crossword List"});
 	},
 	"/edit/`crosswordId`": function(req, res) {
@@ -67,7 +61,7 @@ var router = bee.route({
 							err.message == ERR_MSG.missingLoginData ||
 							err.message == ERR_MSG.userNotFound) {
 							//all count as login fail
-							safeRender(req, res, "index.html", {"errors":["Incorrect user name or password"]});
+							output.safeRender(req, res, "index.html", {"errors":["Incorrect user name or password"]});
 						} else {
 							console.log(err);
 							res.writeHead(303, {"Location": "/"});
@@ -90,6 +84,10 @@ var router = bee.route({
 		});
 		res.end();
 	},
+	"/validateEmail/`email`/`secret`": mailer.validateEmail,
+	"/blockEmail/`email`/`secret`": mailer.blockEmail,
+
+	// AJAX list / edit functions
 	"/getCrosswordList": {
 		"POST": function(req, res) {
 			//console.log("* Get crossword list");
@@ -149,7 +147,7 @@ var router = bee.route({
 							router.error(req, res, err);
 						}
 					} else {
-						sendOK(res, crosswordInfo, "application/json");
+						output.sendOK(res, crosswordInfo, "application/json");
 					}
 				});
 		}
@@ -178,7 +176,7 @@ var router = bee.route({
 					} else {
 						//console.log("going to send...");
 						//console.log('{"crosswordId":"' + crosswordId.toHexString() + '"}');
-						sendOK(res, '{"crosswordId":"' + crosswordId.toHexString() + '"}', "application/json");
+						output.sendOK(res, '{"crosswordId":"' + crosswordId.toHexString() + '"}', "application/json");
 					}
 				});
 		}
@@ -206,7 +204,7 @@ var router = bee.route({
 						console.log(err);
 						router.error(req, res, err);
 					} else {
-						sendOK(res, "Item saved", "text/plain");
+						output.sendOK(res, "Item saved", "text/plain");
 					}
 				});
 		}
@@ -237,13 +235,15 @@ var router = bee.route({
 							if(err) {
 								router.error(req, res, err);
 							} else {
-								sendOK(res, '{"words":' + JSON.stringify(words) + '}', "application/json"); }
+								output.sendOK(res, '{"words":' + JSON.stringify(words) + '}', "application/json"); }
 						});
 					}
 				});
 			});
 		}
 	},
+
+	// Export
 	"/export/`crosswordId`": function(req, res, tokens, values) {
 		//console.log("* getCrosswordInfo");
 		//console.log(tokens);
@@ -272,10 +272,12 @@ var router = bee.route({
 						router.error(req, res, err);
 					}
 				} else {
-					sendOK(res, crosswordExport, "application/x-unknown", {"Content-Disposition": 'attachment; filename="' + crosswordTitle + '.txt"'});
+					output.sendOK(res, crosswordExport, "application/x-unknown", {"Content-Disposition": 'attachment; filename="' + crosswordTitle + '.txt"'});
 				}
 			});
 	},
+
+	// Profile
 	"/profile/edit": {
 		"GET": function(req, res) {
 			async.waterfall([
@@ -286,7 +288,7 @@ var router = bee.route({
 				function(user, callback) {
 						callback(null, req, res, user);
 				}
-			], showProfileEdit);
+			], output.showProfileEdit);
 		},
 		"POST": function(req, res) {
 			var post;
@@ -307,7 +309,7 @@ var router = bee.route({
 					function(user, callback) {
 						callback(null, req, res, user);
 					}
-			], showProfileEdit);
+			], output.showProfileEdit);
 		}
 	},
 
@@ -423,7 +425,7 @@ function sendUserCrosswordList(user, response, callback) {
 					crosswords = [{"_id":0,"title":"You haven't made any crosswords yet."}];
 				}
 				var body = '{"crosswords":' + JSON.stringify(crosswords) + '}';
-				sendOK(response, body, "application/json");
+				output.sendOK(response, body, "application/json");
 			}
 		});
 	});
@@ -582,7 +584,7 @@ function saveItem(user, post, callback) {
 
 /**
  * Async waterfall function
- * In: user, post data
+ * In: req, res, user, post data
  * Out: user (inc. status message / errors)
  */
 function updateUser(req, res, user, post, callback) {
@@ -598,9 +600,9 @@ function updateUser(req, res, user, post, callback) {
 		if(atPos < 1 || atPos > post.email.length -2) {
 			errors.push("Invalid email address.");
 		} else {
+			newUserInfo.evSecret = new ObjectID().toHexString();
 			statusMsgs.push("Validation mail sent to new address.");
 			statusMsgs.push("Log in with new address but password reminders will be sent to the old one until the new one is validated");
-			//send conf mail here
 		}
 	}
 
@@ -636,6 +638,16 @@ function updateUser(req, res, user, post, callback) {
 					}
 					statusMsgs.unshift("Profile updated.");
 					user.statusMsgs = statusMsgs;
+					if(newUserInfo.evSecret) {
+						var context = {
+							to: newUserInfo.email,
+							subject: "Email validation for CrossFill",
+							server: req.headers.host,
+							email: newUserInfo.email,
+							evSecret: newUserInfo.evSecret
+						};
+						mailer.sendEmail("validateEmail", context);
+					}
 				}
 				callback(null, user);
 			});
@@ -646,39 +658,10 @@ function updateUser(req, res, user, post, callback) {
 	}
 }
 
-/**
- * Async waterfall final function
- * In: error, request, response, user (inc. status message)
- * Out: nothing
- */
-function showProfileEdit(err, req, res, user) {
-	//console.log("* showProfileEdit");
-	if(err) {
-		if(err.message == ERR_MSG.notLoggedIn) {
-			res.writeHead(303, {"Location": "/"});
-			res.end();
-		} else {
-			router.error(req, res, err);
-		}
-	} else {
-		safeRender(req, res, "profile/edit.html", user);
-	}
-}
-
-function safeRender(req, res, template, context) {
-	try {
-		sendOK(res, nunjucks.render(template, context), "text/html");
-	}
-	catch(err) {
-		console.log(err);
-		router.error(req, res, new Error("Mystery server error No.1."));
-	}
-}
-
 function loggedInSafeRender(req, res, template, context) {
 	getLoggedInUser(req, res, function(err, user) {
 		if(!err && user) {
-			safeRender(req, res, template, context);
+			output.safeRender(req, res, template, context);
 		} else {
 			res.writeHead(303, {
 				"Location": "/"
@@ -686,20 +669,6 @@ function loggedInSafeRender(req, res, template, context) {
 			res.end();
 		}
 	});
-}
-
-function sendOK(response, body, type, extraHeaders) {
-	var headers = {
-		"Content-length": body.length,
-		"Content-type": type
-	};
-	if(extraHeaders) {
-		for(var xh in extraHeaders) {
-			headers[xh] = extraHeaders[xh];
-		}
-	}
-	response.writeHead(200, headers);
-	response.end(body);
 }
 
 console.log("Starting...");
