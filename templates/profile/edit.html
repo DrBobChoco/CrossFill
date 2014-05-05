@@ -1,5 +1,5 @@
 {% include "header.html" %}
-<h1>Edit Profile</h1>
+<h1>{{ title }}</h1>
 {% include "errors.html" %}
 {% if statusMsgs %}
 	<ul>
@@ -11,9 +11,12 @@
 <form action="" method="post">
 	Name:&nbsp;<input type="text" name="name" value="{{name}}"><br>
 	Email:&nbsp;<input type="text" name="email" value="{{email}}"></br>
-	<p>Change Password:</p>
-	Old Password:&nbsp;<input type="password" name="oldPassword"><br>
-	New Password:&nbsp;<input type="password" name="newPassword"><br>
+	{% if not signup %}
+		<p>Change Password:</p>
+		Old Password:&nbsp;<input type="password" name="oldPassword"><br>
+		New 
+	{% endif %}
+	Password:&nbsp;<input type="password" name="newPassword"><br>
 	Confirm Password:&nbsp;<input type="password" name="confirmPassword"><br>
 	<input type="submit" value="Save">
 </form>

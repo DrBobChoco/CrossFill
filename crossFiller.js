@@ -76,14 +76,7 @@ router.add({
 				});
 		}
 	},
-	"/logout": function(req, res) {
-		var cookies = new Cookies(req, res);
-		cookies.set("userId").set("loginCheck");
-		res.writeHead(303, {
-			"Location": "/"
-		});
-		res.end();
-	},
+	"/logout": logout,
 	"/validateEmail/`email`/`secret`": mailer.validateEmail,
 	"/blockEmail/`email`/`secret`": mailer.blockEmail,
 
@@ -277,7 +270,33 @@ router.add({
 			});
 	},
 
-	// Profile
+	// Account
+	"/signup": {
+		"GET": function(req, res) {
+			logout(req, res, true);
+			output.showSignup(req, res);
+		},
+		"POST": function(req, res) {
+			async.waterfall([
+				function(callback) {
+					callback(null, req);
+				},
+				getPost,
+				function(post, callback) {
+					callback(null, req, post);
+				},
+				signupUser,
+			], function(errors, signupInfo) {
+					if(errors) {
+						signupInfo.errors = errors;
+						output.showSignup(req, res, signupInfo);
+					} else {
+						output.safeRender(req, res, "generic.html", {noMenu:true, body:"You have successfully signed up. A confirmation email has been sent to " + signupInfo.email + "."});
+					}
+				});
+		}
+	},
+
 	"/profile/edit": {
 		"GET": function(req, res) {
 			async.waterfall([
@@ -406,6 +425,17 @@ function getLoggedInUser(req, res, callback) {
 				}
 			});
 		});
+	}
+}
+
+function logout(req, res, preventRedirect) {
+	var cookies = new Cookies(req, res);
+	cookies.set("userId").set("loginCheck");
+	if(!preventRedirect) {
+		res.writeHead(303, {
+			"Location": "/"
+		});
+		res.end();
 	}
 }
 
@@ -578,6 +608,72 @@ function saveItem(user, post, callback) {
 					{$set:setData}, function(err) {
 				callback(err);
 			});
+		});
+	}
+}
+
+/**
+ * Async waterfall function
+ * In: request, post data
+ * Out: errors, if required; inserted user info
+ */
+function signupUser(req, post, callback) {
+	var reqFields = {
+		name: "Name",
+		email: "Email",
+		newPassword: "Password",
+		confirmPassword: "Confirm password"
+	};
+	var errors = new Array();
+	for(field in reqFields) {
+		if(!post[field]) {
+			errors.push(reqFields[field] + " is required.");
+		}
+	}
+	if(post.newPassword != post.confirmPassword) {
+		errors.push("Passwords don't match.");
+	}
+
+	var user = {
+		name: post.name,
+		email: post.email
+	}
+
+	if(errors.length) {
+		callback(errors, user);
+	} else {
+		dbClient.connect(DB_URL, function(err, db) {
+			var blockedEmails = db.collection("blockedEmails");
+			blockedEmails.count({email: post.email}, function(err, result) {
+				if(err) {
+					callback(["Mystery server error No.3."], user);
+				} else if(result) {
+					callback(["The owner of " + post.email + " has requested it be blocked from CrossFill."], user);
+				} else {
+					user.evSecret = new ObjectID().toHexString();
+					user.pwHash = bcrypt.hashSync(post.newPassword, bcrypt.genSaltSync());
+					var users = db.collection("users");
+					users.insert(user, function(err, result) {
+						if(err) {
+							if(err.code == 11000) {
+								err = ["Email " + user.email + " is already in use."];
+							} else {
+								err = ["Mystery server error No.4."];
+							}
+						} else {
+							var context = {
+								to: user.email,
+								subject: "Welcome to CrossFill",
+								server: req.headers.host,
+								email: user.email,
+								evSecret: user.evSecret
+							};
+							mailer.sendEmail("validateEmail", context);
+						}
+						callback(err, user);
+					});
+				}
+			})
 		});
 	}
 }

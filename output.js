@@ -7,6 +7,23 @@ var ERR_MSG = require("./errMsg.js");
 
 var router;
 
+function showSignup(req, res, signupInfo) {
+	var context = {
+		"noMenu": true,
+		"signup": true,
+		"title": "Sign Up to CrossFiller",
+		"statusMsgs": ["All fields are required."]
+	};
+	if(signupInfo) {
+		context.name = signupInfo.name;
+		context.email = signupInfo.email;
+		if(signupInfo.errors) {
+			context.errors = signupInfo.errors;
+		}
+	}
+	safeRender(req, res, "profile/edit.html", context);
+}
+
 /**
  * Async waterfall final function
  * In: error, request, response, user (inc. status message)
@@ -55,6 +72,7 @@ module.exports = function(routerIn) {
 	router = routerIn;
 
 	return {
+		showSignup: showSignup,
 		showProfileEdit: showProfileEdit,
 		safeRender: safeRender,
 		sendOK: sendOK
