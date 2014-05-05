@@ -1,4 +1,4 @@
-// CrossFill server
+// CrossFiller server
 
 var ipaddress = process.env.OPENSHIFT_NODEJS_IP || "127.0.0.1";
 var port = process.env.OPENSHIFT_NODEJS_PORT || 8080;
@@ -7,39 +7,21 @@ var dbClient = require("mongodb").MongoClient;
 var ObjectID = require("mongodb").ObjectID;
 var DB_URL = require("./db/config.js").getDBURL();
 
-var nunjucks = require("nunjucks");
-nunjucks.configure("templates");
-
 var async = require("async");
 var bcrypt = require("bcrypt");
 var Cookies = require("cookies");
 var qs = require("querystring");
 
-var nodemailer = require("nodemailer");
-var mailConfig = require("./mailConfig.js");
-var smtpTransport = nodemailer.createTransport("SMTP",{
-	service: "Gmail",
-	auth: {
-		user: mailConfig.getUser(),
-		pass: mailConfig.getPassword()
-	}
-});
-
-var ERR_MSG = {
-	crosswordNotFound: "Crossword not found",
-	entityTooLarge: "Request entity too large",
-	loginFailed: "Login failed",
-	missingLoginData: "Missing login data",
-	missingCrosswordData: "Missing crossword data",
-	noGridIds: "No grid ids found",
-	notLoggedIn: "User not logged in",
-	userNotFound: "User not found",
-	generalUserError: 'There was an error. If it persists contact us at <a href="mailto:crossfiller@gmail.com">crossfiller@gmail.com</a>.'
-};
+var ERR_MSG = require("./errMsg.js");
 var MAX_SUGGESTIONS = 8;
 
 var bee = require("beeline");
-var router = bee.route({
+var router = bee.route();
+
+var output = require("./output.js")(router);
+var mailer = require("./mailer.js")(output);
+
+router.add({
 	// Static(ish) paths
 	"/": function(req, res) {
 		getLoggedInUser(req, res, function(err, user) {
@@ -49,7 +31,7 @@ var router = bee.route({
 				});
 				res.end();
 			} else {
-				safeRender(req, res, "index.html", {"noMenu": true});
+				output.safeRender(req, res, "index.html", {"noMenu": true});
 			}
 		});
 	},
@@ -79,7 +61,7 @@ var router = bee.route({
 							err.message == ERR_MSG.missingLoginData ||
 							err.message == ERR_MSG.userNotFound) {
 							//all count as login fail
-							safeRender(req, res, "index.html", {"errors":["Incorrect user name or password"]});
+							output.safeRender(req, res, "index.html", {"errors":["Incorrect user name or password"]});
 						} else {
 							console.log(err);
 							res.writeHead(303, {"Location": "/"});
@@ -102,53 +84,8 @@ var router = bee.route({
 		});
 		res.end();
 	},
-	"/validateEmail/`email`/`secret`": function(req, res, tokens, values) {
-		dbClient.connect(DB_URL, function(err, db) {
-			var users = db.collection("users");
-			users.count({email:tokens.email, evSecret:tokens.secret}, function(err, result) {
-				if(err || result != 1) {
-					safeRender(req, res, "generic.html", {noMenu:true, body:ERR_MSG.generalUserError})
-				} else {
-					users.update({email:tokens.email}, {$set:{lastValidEmail:tokens.email, evSecret:""}}, function(err, result) {
-						var body;
-						if(err || !result) {
-							body = ERR_MSG.generalUserError;
-						} else {
-							body = "Email, " + tokens.email + ", validated.";
-						}
-						safeRender(req, res, "generic.html", {noMenu:true, body:body});
-					});
-				}
-			});
-		});
-	},
-	"/blockEmail/`email`/`secret`": function(req, res, tokens, values) {
-		dbClient.connect(DB_URL, function(err, db) {
-			var users = db.collection("users");
-			users.findOne({email:tokens.email, evSecret:tokens.secret}, function(err, user) {
-				if(err || !user) {
-					safeRender(req, res, "generic.html", {noMenu:true, body:ERR_MSG.generalUserError})
-				} else {
-					users.update({email:tokens.email}, {$set:{email:user.lastValidEmail, evSecret:""}}, function(errUser, result) {
-						var blockedEmails = db.collection("blockedEmails");
-						blockedEmails.insert({email:tokens.email}, function(errBlocked, result) {
-							var body;
-							if(errBlocked && errBlocked.code == 11000) {
-								//Should never happen as user should never have a blocked email set
-								console.log("Error: user with blocked email [" + user._id + ", " + tokens.email + "]");
-								body = "Email, " + tokens.email + " already blocked.";
-							} else if(errUser || errBlocked || !result) {
-								body = ERR_MSG.generalUserError;
-							} else {
-								body = "Email, " + tokens.email + ", blocked.";
-							}
-							safeRender(req, res, "generic.html", {noMenu:true, body:body});
-						});
-					});
-				}
-			});
-		});
-	},
+	"/validateEmail/`email`/`secret`": mailer.validateEmail,
+	"/blockEmail/`email`/`secret`": mailer.blockEmail,
 
 	// AJAX list / edit functions
 	"/getCrosswordList": {
@@ -210,7 +147,7 @@ var router = bee.route({
 							router.error(req, res, err);
 						}
 					} else {
-						sendOK(res, crosswordInfo, "application/json");
+						output.sendOK(res, crosswordInfo, "application/json");
 					}
 				});
 		}
@@ -239,7 +176,7 @@ var router = bee.route({
 					} else {
 						//console.log("going to send...");
 						//console.log('{"crosswordId":"' + crosswordId.toHexString() + '"}');
-						sendOK(res, '{"crosswordId":"' + crosswordId.toHexString() + '"}', "application/json");
+						output.sendOK(res, '{"crosswordId":"' + crosswordId.toHexString() + '"}', "application/json");
 					}
 				});
 		}
@@ -267,7 +204,7 @@ var router = bee.route({
 						console.log(err);
 						router.error(req, res, err);
 					} else {
-						sendOK(res, "Item saved", "text/plain");
+						output.sendOK(res, "Item saved", "text/plain");
 					}
 				});
 		}
@@ -298,7 +235,7 @@ var router = bee.route({
 							if(err) {
 								router.error(req, res, err);
 							} else {
-								sendOK(res, '{"words":' + JSON.stringify(words) + '}', "application/json"); }
+								output.sendOK(res, '{"words":' + JSON.stringify(words) + '}', "application/json"); }
 						});
 					}
 				});
@@ -335,7 +272,7 @@ var router = bee.route({
 						router.error(req, res, err);
 					}
 				} else {
-					sendOK(res, crosswordExport, "application/x-unknown", {"Content-Disposition": 'attachment; filename="' + crosswordTitle + '.txt"'});
+					output.sendOK(res, crosswordExport, "application/x-unknown", {"Content-Disposition": 'attachment; filename="' + crosswordTitle + '.txt"'});
 				}
 			});
 	},
@@ -351,7 +288,7 @@ var router = bee.route({
 				function(user, callback) {
 						callback(null, req, res, user);
 				}
-			], showProfileEdit);
+			], output.showProfileEdit);
 		},
 		"POST": function(req, res) {
 			var post;
@@ -372,7 +309,7 @@ var router = bee.route({
 					function(user, callback) {
 						callback(null, req, res, user);
 					}
-			], showProfileEdit);
+			], output.showProfileEdit);
 		}
 	},
 
@@ -488,7 +425,7 @@ function sendUserCrosswordList(user, response, callback) {
 					crosswords = [{"_id":0,"title":"You haven't made any crosswords yet."}];
 				}
 				var body = '{"crosswords":' + JSON.stringify(crosswords) + '}';
-				sendOK(response, body, "application/json");
+				output.sendOK(response, body, "application/json");
 			}
 		});
 	});
@@ -704,7 +641,7 @@ function updateUser(user, post, host, callback) {
 							email: newUserInfo.email,
 							evSecret: newUserInfo.evSecret
 						};
-						sendEmail("validateEmail", context);
+						mailer.sendEmail("validateEmail", context);
 					}
 				}
 				callback(null, user);
@@ -716,65 +653,10 @@ function updateUser(user, post, host, callback) {
 	}
 }
 
-/**
- * Async waterfall final function
- * In: error, request, response, user (inc. status message)
- * Out: nothing
- */
-function showProfileEdit(err, req, res, user) {
-	//console.log("* showProfileEdit");
-	if(err) {
-		if(err.message == ERR_MSG.notLoggedIn) {
-			res.writeHead(303, {"Location": "/"});
-			res.end();
-		} else {
-			router.error(req, res, err);
-		}
-	} else {
-		user.title = "Edit Profile";
-		safeRender(req, res, "profile/edit.html", user);
-	}
-}
-
-function sendEmail(template, context) {
-	var mailOptions = {
-		from: mailConfig.getName() + " <" + mailConfig.getAddress() + ">",
-		to: context.to,
-		subject: context.subject,
-	};
-	try {
-		mailOptions.txt = nunjucks.render("email/" + template + ".txt", context);
-	}
-	catch(e) {}
-	try {
-		mailOptions.html = nunjucks.render("email/" + template + ".html", context);
-	}
-	catch(e) {}
-
-	smtpTransport.sendMail(mailOptions, function(err, result) {
-		if(err) {
-			console.log("Mail error [" + template + " to " + context.to + "]:");
-			console.log(err);
-		}
-		console.log("Mail result:");
-		console.log(result);
-	});
-}
-
-function safeRender(req, res, template, context) {
-	try {
-		sendOK(res, nunjucks.render(template, context), "text/html");
-	}
-	catch(err) {
-		console.log(err);
-		router.error(req, res, new Error("Mystery server error No.1."));
-	}
-}
-
 function loggedInSafeRender(req, res, template, context) {
 	getLoggedInUser(req, res, function(err, user) {
 		if(!err && user) {
-			safeRender(req, res, template, context);
+			output.safeRender(req, res, template, context);
 		} else {
 			res.writeHead(303, {
 				"Location": "/"
@@ -782,20 +664,6 @@ function loggedInSafeRender(req, res, template, context) {
 			res.end();
 		}
 	});
-}
-
-function sendOK(response, body, type, extraHeaders) {
-	var headers = {
-		"Content-length": body.length,
-		"Content-type": type
-	};
-	if(extraHeaders) {
-		for(var xh in extraHeaders) {
-			headers[xh] = extraHeaders[xh];
-		}
-	}
-	response.writeHead(200, headers);
-	response.end(body);
 }
 
 console.log("Starting...");
